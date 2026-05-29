@@ -1,0 +1,93 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target universal-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      # Install System Dependencies (Linux)
+      - name: Install Dependencies (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libglib2.0-dev \
+            libgexiv2-dev \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      # Install System Dependencies (macOS)
+      - name: Install Dependencies (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew install gexiv2 pkg-config
+
+      # Setup Python and download ONNX weights so Tauri can bundle them
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install download script dependencies
+        run: pip install huggingface-hub
+
+      - name: Download Model Weights for Bundling
+        run: python download_model.py
+
+      # Install frontend dependencies and build
+      - name: Install Frontend Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Build and create Github Release
+      - name: Build & Publish Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'Image Label IA v__VERSION__'
+          releaseBody: 'Locally run AI-assisted image classification and metadata generator. Download the asset for your operating system below.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

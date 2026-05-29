@@ -1,0 +1,586 @@
+<div class="app-container">
+  <!-- Top Header Navigation -->
+  <header class="app-header">
+    <div class="brand">
+      <img src="assets/tauri.svg" class="brand-logo" alt="ImageLabelIA Logo" />
+      <div class="brand-info">
+        <h1>ImageLabelIA</h1>
+      </div>
+    </div>
+
+    <div class="folder-search-container">
+      <div class="segmented-btn-group">
+        <button 
+          class="scan-btn batch-tag-btn" 
+          [class.running]="batchRunning"
+          [style.background]="getBatchProgressGradient()"
+          (click)="onBatchTagClick()"
+          [disabled]="images.length === 0 && subfolders.length === 0"
+          [title]="batchRunning ? 'Click to cancel auto-tagging folder' : 'Automatically run AI keyword tagging on all images in folder'"
+        >
+          <span *ngIf="!batchRunning">
+            <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: middle;"><path d="m12 3-1.912 5.886L4.202 9l5.886 1.912L12 16.798l1.912-5.886L19.798 9l-5.886-1.912L12 3Z"/></svg>
+            <span style="vertical-align: middle;">Auto-Tag Folder</span>
+          </span>
+          <span *ngIf="batchRunning">
+            {{ batchProgressPercent }}% · Cancel
+          </span>
+        </button>
+        
+        <button 
+          *ngIf="!batchRunning"
+          class="config-dropdown-btn" 
+          (click)="openConfigModal()"
+          [disabled]="images.length === 0 && subfolders.length === 0"
+          title="Configure batch auto-tagging options"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <div class="main-layout">
+    
+    <!-- Left Navigation Panel: Folder Tree -->
+    <aside class="sidebar" [class.collapsed]="leftSidebarCollapsed">
+      <div class="panel-header">
+        <h2>Folders</h2>
+        <button class="collapse-trigger-btn" (click)="toggleLeftSidebar()" title="Collapse Panel">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+      </div>
+      <div class="sidebar-content">
+        <div class="folder-list">
+          <div *ngIf="subfolders.length === 0" class="no-subfolders">
+            No subfolders found
+          </div>
+          
+          <button 
+            *ngFor="let sub of subfolders" 
+            class="folder-item" 
+            (click)="navigateToFolder(sub)"
+          >
+            <svg class="folder-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+            <span class="folder-name">{{ getFolderName(sub) }}</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Pane: Image Gallery -->
+    <section class="gallery-container">
+      <div class="panel-header">
+        <div class="left-controls-group">
+          <!-- Expand Folders trigger -->
+          <button 
+            *ngIf="leftSidebarCollapsed" 
+            class="sidebar-expand-btn" 
+            (click)="toggleLeftSidebar()" 
+            title="Expand Folders Panel"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+          </button>
+
+          <div class="title-with-count">
+            <h2>Gallery</h2>
+            <span class="count-badge" *ngIf="images.length > 0">
+              {{ filteredImages.length }} <span class="badge-separator">/</span> {{ images.length }} images
+            </span>
+          </div>
+        </div>
+
+        <!-- Search & Zoom Controls -->
+        <div class="gallery-toolbar" *ngIf="images.length > 0">
+          <div class="gallery-search-box">
+            <svg class="search-icon-small" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input 
+              type="text" 
+              [(ngModel)]="searchQuery" 
+              placeholder="Search images by name..."
+            />
+            <button class="clear-btn" *ngIf="searchQuery" (click)="searchQuery = ''">&times;</button>
+          </div>
+
+          <div class="zoom-control">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+            <input 
+              type="range" 
+              min="1" 
+              max="4" 
+              [(ngModel)]="gridScale" 
+              class="zoom-slider"
+              title="Resize grid thumbnails"
+            />
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+          </div>
+        </div>
+
+        <div class="right-controls-group">
+          <!-- Expand Details trigger -->
+          <button 
+            *ngIf="rightSidebarCollapsed" 
+            class="sidebar-expand-btn" 
+            (click)="toggleRightSidebar()" 
+            title="Expand Details Panel"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="gallery-content">
+        <!-- Error & Loading States -->
+        <div *ngIf="scanError" class="error-banner">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+          <p>{{ scanError }}</p>
+        </div>
+
+        <div *ngIf="images.length === 0 && !scanning && !scanError" class="empty-state">
+          <svg class="empty-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          <h3>No Images Loaded</h3>
+          <p>Click "Browse Folder" in the footer to choose a folder on your system.</p>
+        </div>
+
+        <div *ngIf="scanning" class="gallery-loading">
+          <div class="spinner"></div>
+          <p>Scanning folder and indexing images...</p>
+        </div>
+
+        <!-- Gallery Grid (Scalable) -->
+        <div class="image-grid scale-{{ gridScale }}" *ngIf="images.length > 0">
+          <div 
+            *ngFor="let img of filteredImages" 
+            class="image-card"
+            [class.active]="selectedImage?.path === img.path"
+            (click)="selectImage(img)"
+          >
+            <!-- Native Image Thumbnail loaded via Tauri Custom Asset Protocol -->
+            <div class="card-media">
+              <img 
+                [src]="getImageUrl(img.path)" 
+                alt="Thumbnail" 
+                class="card-img" 
+                loading="lazy"
+              />
+            </div>
+            <div class="card-info">
+              <span class="img-name" [title]="img.name">{{ img.name }}</span>
+            </div>
+          </div>
+
+          <div *ngIf="filteredImages.length === 0" class="no-filter-results">
+            No images match your search query "{{ searchQuery }}"
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Pane: Tagging & Details Panel -->
+    <aside class="details-panel" [class.collapsed]="rightSidebarCollapsed">
+      <div class="panel-header">
+        <h2>Details & Tagging</h2>
+        <button class="collapse-trigger-btn" (click)="toggleRightSidebar()" title="Collapse Panel">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
+      </div>
+
+      <div class="details-content">
+        <!-- No Selection State -->
+        <div *ngIf="!selectedImage" class="empty-state-side">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          <p>Select an image from the gallery to run AI classification, view metadata specifications, and edit tags.</p>
+        </div>
+
+        <!-- Loaded Details state -->
+        <div *ngIf="selectedImage" class="details-loaded-content">
+          <!-- Large Image Preview (Loads instantly using local asset protocol) -->
+          <div class="preview-box">
+            <img 
+              [src]="getImageUrl(selectedImage.path)" 
+              alt="Preview" 
+              class="preview-img"
+            />
+            <div class="preview-name">{{ selectedImage.name }}</div>
+          </div>
+
+          <!-- Loading Details State -->
+          <div *ngIf="loadingImageDetails" class="details-loading">
+            <div class="spinner"></div>
+            <p>Running ConvNeXt inference...</p>
+          </div>
+
+          <!-- Metadata content (shown only when model finishes) -->
+          <ng-container *ngIf="!loadingImageDetails && selectedImageData">
+            <!-- Image Specifications (Dimensions, File Size, Exif) -->
+            <div class="metadata-section spec-section">
+              <h3 class="collapsible-header" (click)="metadataCollapsed = !metadataCollapsed">
+                <span>Metadata Specifications</span>
+                <svg class="chevron-icon" [class.collapsed]="metadataCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </h3>
+              <div class="spec-grid" *ngIf="!metadataCollapsed">
+                <div class="spec-row" *ngIf="selectedImageData.dimensions">
+                  <span class="spec-label">Resolution</span>
+                  <span class="spec-value">{{ selectedImageData.dimensions[0] }} × {{ selectedImageData.dimensions[1] }} px</span>
+                </div>
+                <div class="spec-row" *ngIf="selectedImageData.file_size_bytes">
+                  <span class="spec-label">File Size</span>
+                  <span class="spec-value">{{ formatBytes(selectedImageData.file_size_bytes) }}</span>
+                </div>
+                <div class="spec-row" *ngIf="selectedImageData.exif?.date_time">
+                  <span class="spec-label">Date Taken</span>
+                  <span class="spec-value">{{ selectedImageData.exif.date_time }}</span>
+                </div>
+                <div class="spec-row" *ngIf="selectedImageData.exif?.make || selectedImageData.exif?.model">
+                  <span class="spec-label">Camera</span>
+                  <span class="spec-value">{{ selectedImageData.exif.make || '' }} {{ selectedImageData.exif.model || '' }}</span>
+                </div>
+                <div class="spec-row" *ngIf="selectedImageData.exif?.exposure_time || selectedImageData.exif?.aperture || selectedImageData.exif?.iso">
+                  <span class="spec-label">Exposure Settings</span>
+                  <span class="spec-value settings-tags">
+                    <span *ngIf="selectedImageData.exif.aperture" class="spec-subbadge">ƒ/{{ selectedImageData.exif.aperture }}</span>
+                    <span *ngIf="selectedImageData.exif.exposure_time" class="spec-subbadge">{{ selectedImageData.exif.exposure_time }}s</span>
+                    <span *ngIf="selectedImageData.exif.iso" class="spec-subbadge">ISO {{ selectedImageData.exif.iso }}</span>
+                  </span>
+                </div>
+                <div class="spec-row" *ngIf="selectedImageData.exif?.focal_length">
+                  <span class="spec-label">Focal Length</span>
+                  <span class="spec-value">{{ selectedImageData.exif.focal_length }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Existing Tags -->
+            <div class="metadata-section">
+              <h3 class="collapsible-header" (click)="existingTagsCollapsed = !existingTagsCollapsed">
+                <span>Existing Keywords <span class="badge">{{ selectedImageData.existing_tags.length }}</span></span>
+                <svg class="chevron-icon" [class.collapsed]="existingTagsCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </h3>
+              <div class="tags-container" *ngIf="!existingTagsCollapsed">
+                <span *ngIf="selectedImageData.existing_tags.length === 0" class="no-tags">
+                  No tags currently in metadata
+                </span>
+                <span *ngFor="let tag of selectedImageData.existing_tags" class="tag-pill existing">
+                  {{ tag }}
+                </span>
+              </div>
+            </div>
+
+            <!-- AI Predicted Tags -->
+            <div class="metadata-section">
+              <h3 class="collapsible-header" (click)="predictedTagsCollapsed = !predictedTagsCollapsed">
+                <span>AI Suggested Keywords</span>
+                <svg class="chevron-icon" [class.collapsed]="predictedTagsCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </h3>
+              <div class="tags-container" *ngIf="!predictedTagsCollapsed">
+                <button 
+                  *ngFor="let tag of selectedImageData.predicted_tags" 
+                  class="tag-pill suggested-chip"
+                  [class.active]="predictedTagsChecked[tag]"
+                  (click)="togglePredictedTag(tag)"
+                  [title]="predictedTagsChecked[tag] ? 'Click to deselect tag' : 'Click to select tag'"
+                >
+                  <span class="chip-status-icon">
+                    <!-- Check icon if active, plus icon if inactive -->
+                    <svg *ngIf="predictedTagsChecked[tag]" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    <svg *ngIf="!predictedTagsChecked[tag]" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  </span>
+                  <span>{{ tag }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Custom Tag Input -->
+            <div class="metadata-section">
+              <h3 class="collapsible-header" (click)="customTagsCollapsed = !customTagsCollapsed">
+                <span>Add Custom Keywords</span>
+                <svg class="chevron-icon" [class.collapsed]="customTagsCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </h3>
+              <div *ngIf="!customTagsCollapsed">
+                <div class="custom-tag-input-row">
+                  <input 
+                    type="text" 
+                    [(ngModel)]="customTagInput" 
+                    placeholder="Enter tags (comma separated)..."
+                    (keyup.enter)="addCustomTags()"
+                  />
+                  <button class="add-tag-btn" (click)="addCustomTags()">Add</button>
+                </div>
+                
+                <div class="tags-container" *ngIf="customTags.length > 0" style="margin-top: 8px;">
+                  <span *ngFor="let tag of customTags" class="tag-pill custom">
+                    {{ tag }}
+                    <button class="remove-tag-btn" (click)="removeCustomTag(tag)">&times;</button>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Operation Feedback -->
+            <div *ngIf="saveSuccess" class="success-banner">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Tags successfully saved to file metadata!
+            </div>
+
+            <div *ngIf="saveError" class="error-banner">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+              Error: {{ saveError }}
+            </div>
+
+            <!-- Write Tags Trigger Button -->
+            <button 
+              class="save-btn" 
+              [disabled]="savingMetadata" 
+              (click)="saveTags()"
+            >
+              <span *ngIf="!savingMetadata">Write Tags to Metadata</span>
+              <span *ngIf="savingMetadata">Writing...</span>
+            </button>
+          </ng-container>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Bottom status bar & breadcrumbs path route navigation -->
+  <footer class="app-footer">
+    <div class="footer-path-route">
+      <!-- Go to Parent Folder button relocated at the bottom left of footer -->
+      <button class="nav-btn-mini" (click)="navigateToParent()" title="Go to Parent Folder">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+
+      <span class="route-label">Route:</span>
+      <button class="breadcrumb-btn root" (click)="navigateToFolder('/')" title="Go to Root">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </button>
+      
+      <ng-container *ngFor="let seg of pathSegments; let last = last">
+        <span class="breadcrumb-separator">
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </span>
+        <button 
+          class="breadcrumb-btn" 
+          [class.active]="last" 
+          (click)="navigateToFolder(seg.fullPath)"
+          [title]="seg.fullPath"
+        >
+          {{ seg.name }}
+        </button>
+      </ng-container>
+    </div>
+
+    <div class="footer-status">
+      <!-- Native folder picker trigger located in the footer -->
+      <button class="browse-btn mini" (click)="browseFolder()" title="Browse folder natively">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        <span>Browse Folder</span>
+      </button>
+    </div>
+  </footer>
+</div>
+
+<!-- Batch Tagging Report Modal -->
+<div class="modal-overlay" *ngIf="batchReport">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>Auto-Tagging Report</h2>
+      <button class="modal-close-btn" (click)="closeReport()">&times;</button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="status-summary" [class.cancelled]="batchReport.status === 'Cancelled'">
+        <div class="status-icon">
+          <svg *ngIf="batchReport.status === 'Completed'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <svg *ngIf="batchReport.status === 'Cancelled'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+        </div>
+        <div class="status-text">
+          <h3>Batch Process {{ batchReport.status }}</h3>
+          <p>Processed {{ batchReport.processed }} out of {{ batchReport.total }} images in {{ batchReport.duration }}s</p>
+        </div>
+      </div>
+
+      <div class="report-grid">
+        <div class="report-stat-card">
+          <span class="stat-label">Successful</span>
+          <span class="stat-val success">{{ batchReport.successes }}</span>
+        </div>
+        <div class="report-stat-card">
+          <span class="stat-label">Failed</span>
+          <span class="stat-val failure">{{ batchReport.failures }}</span>
+        </div>
+        <div class="report-stat-card">
+          <span class="stat-label">Tags Added</span>
+          <span class="stat-val accent">{{ batchReport.tagsAdded }}</span>
+        </div>
+      </div>
+
+      <!-- Failure Details List -->
+      <div class="report-errors-section" *ngIf="batchReport.errors.length > 0">
+        <h4>Failed Files ({{ batchReport.errors.length }})</h4>
+        <div class="errors-list-container">
+          <div class="error-item" *ngFor="let item of batchReport.errors">
+            <span class="error-filename">{{ item.name }}</span>
+            <span class="error-message">{{ item.error }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="dismiss-btn" (click)="closeReport()">Dismiss Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- Batch Tagging Configuration Modal -->
+<div class="modal-overlay" *ngIf="showConfigModal">
+  <div class="modal-card config-card">
+    <div class="modal-header">
+      <h2>Auto-Tagging Settings</h2>
+      <button class="modal-close-btn" (click)="closeConfigModal()">&times;</button>
+    </div>
+    
+    <div class="modal-body config-body">
+      <!-- Folder Depth Analysis & Selector -->
+      <!-- Folder Depth Analysis & Selector -->
+      <div class="config-option">
+        <label class="config-label">Folder Depth Scan Options</label>
+        
+        <!-- Pre-Scan On-Demand Panel -->
+        <div *ngIf="!depthReportLoading && !depthReport" class="pre-scan-panel">
+          <button class="pre-scan-btn" (click)="analyzeFolderDepth()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            <span style="vertical-align: middle;">Pre-Scan Folder Depth</span>
+          </button>
+          <p class="pre-scan-note">Analyzes nesting levels and subfolders to enable specific target depth choices.</p>
+        </div>
+
+        <!-- Loading spinner for Depth Analysis -->
+        <div *ngIf="depthReportLoading" class="depth-analyzer-loading">
+          <span class="batch-spinner-mini"></span>
+          <span style="font-size: 0.8rem; color: var(--text-secondary);">Analyzing directory structure and nesting levels...</span>
+        </div>
+
+        <ng-container *ngIf="!depthReportLoading && depthReport">
+          <!-- Folder Stats Grid -->
+          <div class="depth-stats-row">
+            <div class="depth-stat-box">
+              <span class="depth-box-val">{{ depthReport.max_depth }}</span>
+              <span class="depth-box-lbl">Nesting Depth</span>
+            </div>
+            <div class="depth-stat-box">
+              <span class="depth-box-val">{{ depthReport.total_folders }}</span>
+              <span class="depth-box-lbl">Subfolders</span>
+            </div>
+            <div class="depth-stat-box">
+              <span class="depth-box-val">{{ depthReport.total_images }}</span>
+              <span class="depth-box-lbl">Total Images</span>
+            </div>
+          </div>
+
+          <!-- Visual levels density diagram -->
+          <div class="depth-levels-visualizer">
+            <ng-container *ngFor="let lvl of depthReport.levels">
+              <div class="level-density-row" *ngIf="lvl.image_count > 0">
+                <div class="level-meta">
+                  <span class="level-name">
+                    <span *ngIf="lvl.level === 0">Current Folder</span>
+                    <span *ngIf="lvl.level === 1">Subfolders (Depth 1)</span>
+                    <span *ngIf="lvl.level > 1">Subfolders (Depth {{ lvl.level }})</span>
+                  </span>
+                  <span class="level-counts">
+                    <span *ngIf="lvl.folder_count > 0">{{ lvl.folder_count }} folders · </span>
+                    <span>{{ lvl.image_count }} images</span>
+                  </span>
+                </div>
+                <div class="level-density-bar">
+                  <div 
+                    class="level-density-fill" 
+                    [style.width.%]="depthReport.total_images > 0 ? (lvl.image_count / depthReport.total_images * 100) : 0"
+                  ></div>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+        </ng-container>
+
+        <!-- Target Depth selection dropdown -->
+        <div class="depth-selector-field">
+          <label class="depth-select-lbl">Target Depth:</label>
+          <select class="depth-select-input" [(ngModel)]="configTargetDepth">
+            <option [ngValue]="0">Current Level Only <span *ngIf="depthReport">({{ depthReport.levels[0]?.image_count || 0 }} images)</span></option>
+            <option *ngIf="depthReport && depthReport.max_depth >= 1" [ngValue]="1">Current Level + 1 Subfolder Deep</option>
+            <option *ngIf="depthReport && depthReport.max_depth >= 2" [ngValue]="2">Current Level + 2 Subfolders Deep</option>
+            <option [ngValue]="999">Recursive All Levels <span *ngIf="depthReport">({{ depthReport.total_images }} images)</span></option>
+          </select>
+        </div>
+
+        <p class="config-desc" style="margin-top: 8px;">Configuring the search depth determines which images within this folder tree are processed by the auto-tagger.</p>
+      </div>
+
+      <!-- Max Tags Option -->
+      <div class="config-option">
+        <label class="config-label">
+          <span>Keywords per Image:</span>
+          <span class="config-badge">{{ configMaxTags }} tags</span>
+        </label>
+        <div class="slider-container">
+          <input 
+            type="range" 
+            min="1" 
+            max="10" 
+            [(ngModel)]="configMaxTags" 
+            class="config-slider"
+          />
+          <div class="slider-labels">
+            <span>1</span>
+            <span>5</span>
+            <span>10</span>
+          </div>
+        </div>
+        <p class="config-desc">The maximum number of top-scoring AI predictions to write into each image's metadata.</p>
+      </div>
+
+      <!-- Strategy Option -->
+      <div class="config-option">
+        <label class="config-label">Tagging Strategy</label>
+        <div class="radio-group">
+          <label class="radio-row" [class.selected]="configMode === 'append'">
+            <input type="radio" name="configMode" value="append" [(ngModel)]="configMode" />
+            <div class="radio-info">
+              <span class="radio-title">Append Keywords (Default)</span>
+              <span class="radio-desc">Adds new AI predictions to the existing keywords list, keeping duplicates out.</span>
+            </div>
+          </label>
+
+          <label class="radio-row" [class.selected]="configMode === 'skip-tagged'">
+            <input type="radio" name="configMode" value="skip-tagged" [(ngModel)]="configMode" />
+            <div class="radio-info">
+              <span class="radio-title">Skip Tagged Images</span>
+              <span class="radio-desc">Only runs classification and tags files that currently have no keywords in their metadata.</span>
+            </div>
+          </label>
+
+          <label class="radio-row" [class.selected]="configMode === 'overwrite'">
+            <input type="radio" name="configMode" value="overwrite" [(ngModel)]="configMode" />
+            <div class="radio-info">
+              <span class="radio-title">Overwrite Existing Keywords</span>
+              <span class="radio-desc">Wipes all current keywords and replaces them entirely with new AI predictions.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer config-footer">
+      <button class="cancel-btn" (click)="closeConfigModal()">Cancel</button>
+      <button class="run-btn" (click)="runBatchWithConfig()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: middle;"><path d="m12 3-1.912 5.886L4.202 9l5.886 1.912L12 16.798l1.912-5.886L19.798 9l-5.886-1.912L12 3Z"/></svg>
+        <span style="vertical-align: middle;">Apply & Run</span>
+      </button>
+    </div>
+  </div>
+</div>

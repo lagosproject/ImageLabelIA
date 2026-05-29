@@ -1,69 +1,182 @@
-# 📸 Image Classifier for Photographers 📸
+# 📸 Image Label IA
 
-This repository is designed for photographers 📷! It provides a graphical application to classify and detect objects in images. Use the power of the `Vision Transformer (ViT)` for classification and the `DEtection TRansformer (DETR)` for object detection. Easily select a folder with your images and let the application highlight the magic within them.
+[![CI Build Status](https://img.shields.io/github/actions/workflow/status/lakescorp/ImageLabelIA/ci.yml?branch=main&style=for-the-badge)](https://github.com/lakescorp/ImageLabelIA/actions)
+[![License](https://img.shields.io/github/license/lakescorp/ImageLabelIA?style=for-the-badge)](LICENSE)
+[![Tauri Version](https://img.shields.io/badge/Tauri-v2-blue?style=for-the-badge&logo=tauri)](https://tauri.app/)
+[![Angular Version](https://img.shields.io/badge/Angular-v20-red?style=for-the-badge&logo=angular)](https://angular.dev/)
+[![Python Version](https://img.shields.io/badge/Python-3.9+-yellow?style=for-the-badge&logo=python)](https://www.python.org/)
 
-## 📷 Application Screenshots:
+**Image Label IA** is a high-performance desktop application designed specifically for photographers. It automates image tagging and metadata generation using state-of-the-art machine learning models (ConvNeXt and DETR), run directly on your local device via Tauri, Angular, and Rust/Python.
 
-![Home Capture](images/captura-home1.png)
+---
 
-![Process Capture](images/captura-proceso.png)
+## 📖 Table of Contents
+- [About the Project](#-about-the-project)
+- [Key Features](#-key-features)
+- [Tech Stack](#-tech-stack)
+- [Prerequisites](#%EF%B8%8F-prerequisites)
+- [Installation & Setup](#-installation--setup)
+- [Configuration](#%EF%B8%8F-configuration)
+- [Usage](#-usage)
+- [Developer Guides](#-developer-guides)
+- [Contributing](#-contributing)
+- [Security](#-security)
+- [License](#-license)
 
-![Tags applied capture](images/captura-aplicacion.png)
+---
 
-## ✨ Features:
+## 🎨 About the Project
 
-- 🚀 Multi-threaded image processing.
-- 🔄 Progress bar and process status updates.
-- 🤖 Option to trust AI and apply all suggestions.
-- 🖼 Thumbnails of images on the canvas.
-- 🛑 Ability to stop the ongoing processing.
-- 🌙 Dark mode.
+Photographers often spend hours manually keywording, organizing, and tagging photos. **Image Label IA** solves this by performing locally run AI-assisted classification and object detection. By leveraging ONNX Runtime in Rust (`ort`), the application analyzes images instantly and updates metadata using standard EXIF/IPTC/XMP headers, without sending your private photographs to third-party cloud services.
 
-## 🛠 Setup
+### Application Screenshots
 
-### Dependencies:
+| Main Dashboard | Image Processing | Meta Tags Applied |
+|:---:|:---:|:---:|
+| ![Home](images/captura-home1.png) | ![Processing](images/captura-proceso.png) | ![Applied](images/captura-aplicacion.png) |
 
-- [Transformers](https://github.com/huggingface/transformers)
-- [Torch](https://pytorch.org/)
-- [Pillow (PIL)](https://python-pillow.org/)
-- [tkinter](https://docs.python.org/3/library/tkinter.html)
-- [IPTCInfo3](https://pypi.org/project/IPTCInfo3/)
-- [Exiv2](https://www.exiv2.org/)
+---
 
-### Installation:
+## ✨ Key Features
 
-1. Clone the repository:
+- **🚀 Hybrid Desktop Architecture**: Powered by Tauri v2 and Angular for a lightweight, secure, and beautiful user interface.
+- **🤖 Offline Local AI Inference**: Uses ONNX Runtime (`ort` in Rust) to run `ConvNeXt` for image classification and `DETR` for object detection.
+- **🔄 Multi-threaded Processing**: Processes folders of high-resolution images asynchronously without UI freezing.
+- **🏷 Metadata Synchronization**: Automatically writes predicted labels directly back to image IPTC metadata.
+- **⚙️ Configurable AI Confidence**: Adjust thresholds to either automatically trust AI suggestions or confirm them manually.
+- **🌙 Modern UI & Dark Mode**: An intuitive, photographer-focused workspace design with interactive canvas thumbnails.
 
-```
+---
+
+## 🛠 Tech Stack
+
+- **Frontend**: Angular 20, TypeScript, Vanilla CSS
+- **App Wrapper & Core**: Tauri v2 (Rust)
+- **AI Inference Backend**: Rust `ort` (ONNX Runtime wrapper)
+- **Model Processing Scripts**: Python 3 (using `torch`, `transformers`, `huggingface-hub`)
+- **Metadata Management**: `rexiv2` (GExiv2 wrapper)
+
+---
+
+## ⚙️ Prerequisites
+
+Before you begin, ensure you have the following installed on your developer machine:
+
+1. **Rust Toolchain**: Install `rustup` to manage Rust compiler versions.
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+2. **Node.js**: Long-Term Support (LTS) version (v18 or higher recommended).
+3. **pnpm**: Fast, disk-efficient package manager.
+   ```bash
+   npm install -g pnpm
+   ```
+4. **Python 3.9+**: For running model conversion/download scripts.
+5. **System Dependencies** (Linux only):
+   Tauri and `rexiv2` (exiv2) require system packages. On Debian/Ubuntu:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y libglib2.0-dev libgexiv2-dev libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+   ```
+
+---
+
+## 🚀 Installation & Setup
+
+Follow these steps to clone the repository and set up your local development environment:
+
+### 1. Clone the Repository
+```bash
 git clone https://github.com/lakescorp/ImageLabelIA.git
 cd ImageLabelIA
 ```
 
-2. Install the required packages:
-
-```
-pip install transformers torch pillow iptcinfo3
-```
-
-## 🚀 Usage:
-
-Run the main script:
-
-```
-python app.py
+### 2. Install Node Dependencies
+Use `pnpm` to install frontend packages:
+```bash
+pnpm install
 ```
 
-Once the GUI launches:
+### 3. Setup Python Virtual Environment & Install Scripts
+Create a virtual environment and install dependencies to fetch/convert the ONNX models:
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt  # Or manually: pip install huggingface-hub torch transformers
+```
 
-1. 📂 Click on "Process Folder" to select a directory with images.
-2. ⚙️ Choose desired options.
-3. 👁‍🗨 The application will display each image with its classification and detected objects.
-4. 🔍 You can click on each image to view it in full size.
+### 4. Fetch the ONNX Model
+Run the download script to retrieve the pre-converted ConvNeXt model and label set from HuggingFace Hub:
+```bash
+python download_model.py
+```
+This saves:
+- `src-tauri/resources/convnext.onnx`
+- `src-tauri/resources/convnext_labels.json`
 
-## 🤝 Contribution:
+### 5. Launch the Application in Dev Mode
+Start the Angular dev server and launch the Tauri window:
+```bash
+pnpm tauri dev
+```
 
-Pull requests are welcome. For significant changes, please open an issue first to discuss what you'd like to change.
+---
 
-## 📜 License:
+## ⚙️ Configuration
 
-[MIT](https://choosealicense.com/licenses/mit/)
+The application reads configurations from environment variables.
+1. Copy the environment template:
+   ```bash
+   cp .env.example .env
+   ```
+2. Customize the settings inside `.env` to suit your system requirements (e.g. changing inference execution providers from `cpu` to `cuda`). Refer to [.env.example](file:///.env.example) for detailed comments.
+
+---
+
+## 📸 Usage
+
+Once the application is running:
+
+1. **Select Folder**: Click **"Process Folder"** to open a native directory picker and select your photo directory.
+2. **Configure Settings**: Select the desired confidence thresholds and tag processing options in the sidebar.
+3. **Run AI Engine**: Click **"Start Tagging"**. The UI will display a real-time progress bar.
+4. **Accept / Reject Tags**: Click thumbnails to inspect labels. Confirm or modify tags before applying them to IPTC metadata.
+5. **Save to Disk**: Apply suggestions to write metadata tags directly into image files.
+
+---
+
+## 🛠 Developer Guides
+
+### Project Structure
+```text
+├── .github/                 # GitHub CI/CD workflows, Pull Request & Issue Templates
+├── .vscode/                 # IDE Configuration
+├── src/                     # Angular Single Page App (Frontend)
+│   ├── app/                 # Components and routing
+│   └── assets/              # App static files
+├── src-tauri/               # Rust Tauri Core (Backend)
+│   ├── resources/           # Pre-compiled ONNX models and category tags
+│   ├── src/                 # Main Tauri entry point, file system, and inference logic
+│   └── Cargo.toml           # Rust Cargo dependencies
+├── download_model.py        # Helper script to pull models from HF Hub
+├── package.json             # NPM package definitions
+└── README.md                # This file
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions make the open-source community an amazing place to learn, inspire, and create. Please check out [CONTRIBUTING.md](file:///CONTRIBUTING.md) to understand our branching strategy, linting guidelines, and code submission protocols.
+
+---
+
+## 🔒 Security
+
+For reporting security vulnerabilities or issues regarding data leaks, please consult our [SECURITY.md](file:///SECURITY.md). Please do not open public GitHub issues for security reports.
+
+---
+
+## 📜 License
+
+Distributed under the **MIT License**. See [LICENSE](file:///LICENSE) for more details.

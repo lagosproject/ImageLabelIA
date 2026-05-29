@@ -1,6 +1,3 @@
-exiv2==0.14.1
-IPTCInfo3==2.1.4
-Pillow==10.0.0
-Pillow==10.0.1
-torch==2.0.1
-transformers==4.30.2
+huggingface-hub
+torch
+transformers
