@@ -36,20 +36,33 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
           version: 9
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust_targets }}
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-${{ matrix.rust_targets }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.rust_targets }}-cargo-
+            ${{ runner.os }}-cargo-
 
       # ── Linux ────────────────────────────────────────────────────────────────
       - name: Install Dependencies (Linux)
@@ -74,18 +87,24 @@ jobs:
         if: startsWith(matrix.platform, 'macos')
         run: brew install gexiv2 pkg-config
 
+      - name: Configure macOS PKG_CONFIG_PATH
+        if: startsWith(matrix.platform, 'macos')
+        run: echo "PKG_CONFIG_PATH=$(brew --prefix gexiv2)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig" >> $GITHUB_ENV
+
       # ── Windows ──────────────────────────────────────────────────────────────
       # Uses MSYS2/MINGW64 to get a pkg-config-compatible gexiv2 build.
       # The GNU Rust target links against these MinGW libraries directly.
-      - name: Install Dependencies (Windows)
+      - name: Setup MSYS2 (Windows)
         if: matrix.platform == 'windows-latest'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
-          install: >-
-            mingw-w64-x86_64-gexiv2
-            mingw-w64-x86_64-pkg-config
+
+      - name: Install MSYS2 packages (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: msys2 {0}
+        run: pacman -S --noconfirm mingw-w64-x86_64-gexiv2 mingw-w64-x86_64-pkg-config
 
       - name: Configure Windows build environment
         if: matrix.platform == 'windows-latest'
