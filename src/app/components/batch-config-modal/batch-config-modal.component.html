@@ -1,0 +1,136 @@
+<div class="modal-overlay" *ngIf="visible">
+  <div class="modal-card config-card">
+    <div class="modal-header">
+      <h2>Auto-Tagging Settings</h2>
+      <button class="modal-close-btn" (click)="onClose()">&times;</button>
+    </div>
+
+    <div class="modal-body config-body">
+      <!-- Folder Depth Analysis & Selector -->
+      <div class="config-option">
+        <label class="config-label">Folder Depth Scan Options</label>
+
+        <div *ngIf="!depthReportLoading && !depthReport" class="pre-scan-panel">
+          <button class="pre-scan-btn" (click)="analyzeFolderDepth()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            <span style="vertical-align: middle;">Pre-Scan Folder Depth</span>
+          </button>
+          <p class="pre-scan-note">Analyzes nesting levels and subfolders to enable specific target depth choices.</p>
+        </div>
+
+        <div *ngIf="depthReportLoading" class="depth-analyzer-loading">
+          <span class="batch-spinner-mini"></span>
+          <span style="font-size: 0.8rem; color: var(--text-secondary);">Analyzing directory structure and nesting levels...</span>
+        </div>
+
+        <ng-container *ngIf="!depthReportLoading && depthReport">
+          <div class="depth-stats-row">
+            <div class="depth-stat-box">
+              <span class="depth-box-val">{{ depthReport.max_depth }}</span>
+              <span class="depth-box-lbl">Nesting Depth</span>
+            </div>
+            <div class="depth-stat-box">
+              <span class="depth-box-val">{{ depthReport.total_folders }}</span>
+              <span class="depth-box-lbl">Subfolders</span>
+            </div>
+            <div class="depth-stat-box">
+              <span class="depth-box-val">{{ depthReport.total_images }}</span>
+              <span class="depth-box-lbl">Total Images</span>
+            </div>
+          </div>
+
+          <div class="depth-levels-visualizer">
+            <ng-container *ngFor="let lvl of depthReport.levels">
+              <div class="level-density-row" *ngIf="lvl.image_count > 0">
+                <div class="level-meta">
+                  <span class="level-name">
+                    <span *ngIf="lvl.level === 0">Current Folder</span>
+                    <span *ngIf="lvl.level === 1">Subfolders (Depth 1)</span>
+                    <span *ngIf="lvl.level > 1">Subfolders (Depth {{ lvl.level }})</span>
+                  </span>
+                  <span class="level-counts">
+                    <span *ngIf="lvl.folder_count > 0">{{ lvl.folder_count }} folders · </span>
+                    <span>{{ lvl.image_count }} images</span>
+                  </span>
+                </div>
+                <div class="level-density-bar">
+                  <div
+                    class="level-density-fill"
+                    [style.width.%]="depthReport.total_images > 0 ? (lvl.image_count / depthReport.total_images * 100) : 0"
+                  ></div>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+        </ng-container>
+
+        <div class="depth-selector-field">
+          <label class="depth-select-lbl">Target Depth:</label>
+          <select class="depth-select-input" [(ngModel)]="configTargetDepth">
+            <option [ngValue]="0">Current Level Only <span *ngIf="depthReport">({{ depthReport.levels[0]?.image_count || 0 }} images)</span></option>
+            <option *ngIf="depthReport && depthReport.max_depth >= 1" [ngValue]="1">Current Level + 1 Subfolder Deep</option>
+            <option *ngIf="depthReport && depthReport.max_depth >= 2" [ngValue]="2">Current Level + 2 Subfolders Deep</option>
+            <option [ngValue]="999">Recursive All Levels <span *ngIf="depthReport">({{ depthReport.total_images }} images)</span></option>
+          </select>
+        </div>
+
+        <p class="config-desc" style="margin-top: 8px;">Configuring the search depth determines which images within this folder tree are processed by the auto-tagger.</p>
+      </div>
+
+      <!-- Max Tags Option -->
+      <div class="config-option">
+        <label class="config-label">
+          <span>Keywords per Image:</span>
+          <span class="config-badge">{{ configMaxTags }} tags</span>
+        </label>
+        <div class="slider-container">
+          <input type="range" min="1" max="10" [(ngModel)]="configMaxTags" class="config-slider" />
+          <div class="slider-labels">
+            <span>1</span>
+            <span>5</span>
+            <span>10</span>
+          </div>
+        </div>
+        <p class="config-desc">The maximum number of top-scoring AI predictions to write into each image's metadata.</p>
+      </div>
+
+      <!-- Strategy Option -->
+      <div class="config-option">
+        <label class="config-label">Tagging Strategy</label>
+        <div class="radio-group">
+          <label class="radio-row" [class.selected]="configMode === 'append'">
+            <input type="radio" name="configMode" value="append" [(ngModel)]="configMode" />
+            <div class="radio-info">
+              <span class="radio-title">Append Keywords (Default)</span>
+              <span class="radio-desc">Adds new AI predictions to the existing keywords list, keeping duplicates out.</span>
+            </div>
+          </label>
+
+          <label class="radio-row" [class.selected]="configMode === 'skip-tagged'">
+            <input type="radio" name="configMode" value="skip-tagged" [(ngModel)]="configMode" />
+            <div class="radio-info">
+              <span class="radio-title">Skip Tagged Images</span>
+              <span class="radio-desc">Only runs classification and tags files that currently have no keywords in their metadata.</span>
+            </div>
+          </label>
+
+          <label class="radio-row" [class.selected]="configMode === 'overwrite'">
+            <input type="radio" name="configMode" value="overwrite" [(ngModel)]="configMode" />
+            <div class="radio-info">
+              <span class="radio-title">Overwrite Existing Keywords</span>
+              <span class="radio-desc">Wipes all current keywords and replaces them entirely with new AI predictions.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer config-footer">
+      <button class="cancel-btn" (click)="onClose()">Cancel</button>
+      <button class="run-btn" (click)="onRun()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: middle;"><path d="m12 3-1.912 5.886L4.202 9l5.886 1.912L12 16.798l1.912-5.886L19.798 9l-5.886-1.912L12 3Z"/></svg>
+        <span style="vertical-align: middle;">Apply &amp; Run</span>
+      </button>
+    </div>
+  </div>
+</div>

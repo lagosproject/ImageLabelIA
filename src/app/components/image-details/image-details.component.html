@@ -1,0 +1,146 @@
+<div class="panel-header">
+  <h2>Details &amp; Tagging</h2>
+  <button class="collapse-trigger-btn" (click)="collapse.emit()" title="Collapse Panel">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+  </button>
+</div>
+
+<div class="details-content">
+  <div *ngIf="!selectedImage" class="empty-state-side">
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+    <p>Select an image from the gallery to run AI classification, view metadata specifications, and edit tags.</p>
+  </div>
+
+  <div *ngIf="selectedImage" class="details-loaded-content">
+    <div class="preview-box">
+      <img [src]="getImageUrl(selectedImage.path)" alt="Preview" class="preview-img" />
+      <div class="preview-name">{{ selectedImage.name }}</div>
+    </div>
+
+    <div *ngIf="loadingImageDetails" class="details-loading">
+      <div class="spinner"></div>
+      <p>Running ConvNeXt inference...</p>
+    </div>
+
+    <div *ngIf="imageLoadError" class="error-banner">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+      Error: {{ imageLoadError }}
+    </div>
+
+    <ng-container *ngIf="!loadingImageDetails && selectedImageData">
+      <!-- Metadata Specifications -->
+      <div class="metadata-section spec-section">
+        <h3 class="collapsible-header" (click)="metadataCollapsed = !metadataCollapsed">
+          <span>Metadata Specifications</span>
+          <svg class="chevron-icon" [class.collapsed]="metadataCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </h3>
+        <div class="spec-grid" *ngIf="!metadataCollapsed">
+          <div class="spec-row" *ngIf="selectedImageData.dimensions">
+            <span class="spec-label">Resolution</span>
+            <span class="spec-value">{{ selectedImageData.dimensions[0] }} × {{ selectedImageData.dimensions[1] }} px</span>
+          </div>
+          <div class="spec-row" *ngIf="selectedImageData.file_size_bytes">
+            <span class="spec-label">File Size</span>
+            <span class="spec-value">{{ formatBytes(selectedImageData.file_size_bytes) }}</span>
+          </div>
+          <div class="spec-row" *ngIf="selectedImageData.exif?.date_time">
+            <span class="spec-label">Date Taken</span>
+            <span class="spec-value">{{ selectedImageData.exif.date_time }}</span>
+          </div>
+          <div class="spec-row" *ngIf="selectedImageData.exif?.make || selectedImageData.exif?.model">
+            <span class="spec-label">Camera</span>
+            <span class="spec-value">{{ selectedImageData.exif.make || '' }} {{ selectedImageData.exif.model || '' }}</span>
+          </div>
+          <div class="spec-row" *ngIf="selectedImageData.exif?.exposure_time || selectedImageData.exif?.aperture || selectedImageData.exif?.iso">
+            <span class="spec-label">Exposure Settings</span>
+            <span class="spec-value settings-tags">
+              <span *ngIf="selectedImageData.exif.aperture" class="spec-subbadge">ƒ/{{ selectedImageData.exif.aperture }}</span>
+              <span *ngIf="selectedImageData.exif.exposure_time" class="spec-subbadge">{{ selectedImageData.exif.exposure_time }}s</span>
+              <span *ngIf="selectedImageData.exif.iso" class="spec-subbadge">ISO {{ selectedImageData.exif.iso }}</span>
+            </span>
+          </div>
+          <div class="spec-row" *ngIf="selectedImageData.exif?.focal_length">
+            <span class="spec-label">Focal Length</span>
+            <span class="spec-value">{{ selectedImageData.exif.focal_length }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Existing Tags -->
+      <div class="metadata-section">
+        <h3 class="collapsible-header" (click)="existingTagsCollapsed = !existingTagsCollapsed">
+          <span>Existing Keywords <span class="badge">{{ selectedImageData.existing_tags.length }}</span></span>
+          <svg class="chevron-icon" [class.collapsed]="existingTagsCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </h3>
+        <div class="tags-container" *ngIf="!existingTagsCollapsed">
+          <span *ngIf="selectedImageData.existing_tags.length === 0" class="no-tags">No tags currently in metadata</span>
+          <span *ngFor="let tag of selectedImageData.existing_tags" class="tag-pill existing">{{ tag }}</span>
+        </div>
+      </div>
+
+      <!-- AI Predicted Tags -->
+      <div class="metadata-section">
+        <h3 class="collapsible-header" (click)="predictedTagsCollapsed = !predictedTagsCollapsed">
+          <span>AI Suggested Keywords</span>
+          <svg class="chevron-icon" [class.collapsed]="predictedTagsCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </h3>
+        <div class="tags-container" *ngIf="!predictedTagsCollapsed">
+          <button
+            *ngFor="let tag of selectedImageData.predicted_tags"
+            class="tag-pill suggested-chip"
+            [class.active]="predictedTagsChecked[tag]"
+            (click)="togglePredictedTag(tag)"
+            [title]="predictedTagsChecked[tag] ? 'Click to deselect tag' : 'Click to select tag'"
+          >
+            <span class="chip-status-icon">
+              <svg *ngIf="predictedTagsChecked[tag]" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              <svg *ngIf="!predictedTagsChecked[tag]" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </span>
+            <span>{{ tag }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Custom Tag Input -->
+      <div class="metadata-section">
+        <h3 class="collapsible-header" (click)="customTagsCollapsed = !customTagsCollapsed">
+          <span>Add Custom Keywords</span>
+          <svg class="chevron-icon" [class.collapsed]="customTagsCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </h3>
+        <div *ngIf="!customTagsCollapsed">
+          <div class="custom-tag-input-row">
+            <input
+              type="text"
+              [(ngModel)]="customTagInput"
+              placeholder="Enter tags (comma separated)..."
+              (keyup.enter)="addCustomTags()"
+            />
+            <button class="add-tag-btn" (click)="addCustomTags()">Add</button>
+          </div>
+          <div class="tags-container" *ngIf="customTags.length > 0" style="margin-top: 8px;">
+            <span *ngFor="let tag of customTags" class="tag-pill custom">
+              {{ tag }}
+              <button class="remove-tag-btn" (click)="removeCustomTag(tag)">&times;</button>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operation Feedback -->
+      <div *ngIf="saveSuccess" class="success-banner">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Tags successfully saved to file metadata!
+      </div>
+
+      <div *ngIf="saveError" class="error-banner">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        Error: {{ saveError }}
+      </div>
+
+      <button class="save-btn" [disabled]="savingMetadata" (click)="saveTags()">
+        <span *ngIf="!savingMetadata">Write Tags to Metadata</span>
+        <span *ngIf="savingMetadata">Writing...</span>
+      </button>
+    </ng-container>
+  </div>
+</div>
