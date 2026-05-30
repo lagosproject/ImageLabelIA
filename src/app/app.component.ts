@@ -1,11 +1,5 @@
-import {
-  Component,
-  ElementRef,
-  ViewChild,
-  ViewEncapsulation,
-} from '@angular/core';
+import { Component, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { TaggerService } from './services/tagger.service';
 import { BatchService } from './services/batch.service';
 import type { BatchConfig } from './services/batch.service';
@@ -23,7 +17,6 @@ import { BatchReportModalComponent } from './components/batch-report-modal/batch
   encapsulation: ViewEncapsulation.None,
   imports: [
     CommonModule,
-    FormsModule,
     FolderTreeComponent,
     ImageGalleryComponent,
     ImageDetailsComponent,
@@ -34,8 +27,6 @@ import { BatchReportModalComponent } from './components/batch-report-modal/batch
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  @ViewChild('pathInput') pathInputRef!: ElementRef<HTMLInputElement>;
-
   constructor(readonly tagger: TaggerService, readonly batch: BatchService) {}
 
   folderPath = '';
@@ -48,7 +39,6 @@ export class AppComponent {
   showConfigModal = false;
   leftSidebarCollapsed = false;
   rightSidebarCollapsed = false;
-  isEditingPath = false;
 
   async scanFolder(): Promise<void> {
     if (!this.folderPath.trim()) return;
@@ -121,16 +111,6 @@ export class AppComponent {
       segments.push({ name: part, fullPath: current });
     }
     return segments;
-  }
-
-  toggleEditPath(): void {
-    this.isEditingPath = !this.isEditingPath;
-    if (this.isEditingPath) {
-      setTimeout(() => {
-        this.pathInputRef?.nativeElement.focus();
-        this.pathInputRef?.nativeElement.select();
-      }, 50);
-    }
   }
 
   async onBatchTagClick(): Promise<void> {

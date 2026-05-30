@@ -98,20 +98,6 @@
           {{ seg.name }}
         </button>
       </ng-container>
-
-      <!-- Inline path editor -->
-      <input
-        *ngIf="isEditingPath"
-        #pathInput
-        type="text"
-        class="path-edit-input"
-        [(ngModel)]="folderPath"
-        (keyup.enter)="toggleEditPath(); scanFolder()"
-        (keyup.escape)="isEditingPath = false"
-      />
-      <button class="breadcrumb-edit-btn" (click)="toggleEditPath()" title="Edit path directly">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-      </button>
     </div>
 
     <div class="footer-status">
