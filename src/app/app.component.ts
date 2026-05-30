@@ -1,4 +1,4 @@
-import { Component, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TaggerService } from './services/tagger.service';
 import { BatchService } from './services/batch.service';
@@ -26,7 +26,7 @@ import { BatchReportModalComponent } from './components/batch-report-modal/batch
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   constructor(readonly tagger: TaggerService, readonly batch: BatchService) {}
 
   folderPath = '';
@@ -39,6 +39,18 @@ export class AppComponent {
   showConfigModal = false;
   leftSidebarCollapsed = false;
   rightSidebarCollapsed = false;
+
+  async ngOnInit(): Promise<void> {
+    try {
+      const initial = await this.tagger.getInitialFolder();
+      if (initial) {
+        this.folderPath = initial;
+        await this.scanFolder();
+      }
+    } catch {
+      // silently ignore — user can still browse manually
+    }
+  }
 
   async scanFolder(): Promise<void> {
     if (!this.folderPath.trim()) return;
@@ -64,6 +76,7 @@ export class AppComponent {
 
   navigateToFolder(path: string): void {
     this.folderPath = path;
+    void this.tagger.saveLastFolder(path).catch(() => {});
     void this.scanFolder();
   }
 
@@ -73,6 +86,7 @@ export class AppComponent {
     if (parts.length > 2) {
       parts.pop();
       this.folderPath = parts.join('/');
+      void this.tagger.saveLastFolder(this.folderPath).catch(() => {});
       void this.scanFolder();
     }
   }
@@ -86,6 +100,7 @@ export class AppComponent {
       const selected = await this.tagger.selectFolder();
       if (selected) {
         this.folderPath = selected;
+        void this.tagger.saveLastFolder(selected).catch(() => {});
         void this.scanFolder();
       }
     } catch (err: any) {
@@ -118,7 +133,7 @@ export class AppComponent {
       this.batch.cancel();
       return;
     }
-    this.showConfigModal = true;
+    await this.startBatchTagging({ mode: 'append', maxTags: 5, targetDepth: 0 });
   }
 
   async startBatchTagging(config: BatchRunConfig): Promise<void> {

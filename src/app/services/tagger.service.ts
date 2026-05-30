@@ -3,6 +3,7 @@ import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import type {
   ImageFileInfo,
   ImageProcessResult,
+  ImageMetadata,
   FolderDepthReport,
 } from '../models';
 
@@ -57,12 +58,28 @@ export class TaggerService {
     return invoke<ImageProcessResult>('get_image_data', { imagePath });
   }
 
+  getImageMetadata(imagePath: string): Promise<ImageMetadata> {
+    return invoke<ImageMetadata>('get_image_metadata', { imagePath });
+  }
+
+  getImageAiTags(imagePath: string): Promise<string[]> {
+    return invoke<string[]>('get_image_ai_tags', { imagePath });
+  }
+
   writeTags(imagePath: string, tags: string[]): Promise<void> {
     return invoke<void>('write_image_tags', { imagePath, tags });
   }
 
   selectFolder(): Promise<string | null> {
     return invoke<string | null>('select_folder');
+  }
+
+  getInitialFolder(): Promise<string> {
+    return invoke<string>('get_initial_folder');
+  }
+
+  saveLastFolder(folderPath: string): Promise<void> {
+    return invoke<void>('save_last_folder', { folderPath });
   }
 
   getFolderDepthAnalysis(folderPath: string): Promise<FolderDepthReport> {

@@ -11,13 +11,14 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { TaggerService } from '../../services/tagger.service';
 import { BatchService } from '../../services/batch.service';
-import type { ImageFileInfo, ImageProcessResult } from '../../models';
+import type { ImageFileInfo, ImageMetadata } from '../../models';
 
 @Component({
   selector: 'app-image-details',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './image-details.component.html',
+  styles: [':host { display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }'],
 })
 export class ImageDetailsComponent implements OnInit, OnDestroy {
   private _selectedImage: ImageFileInfo | null = null;
@@ -34,9 +35,11 @@ export class ImageDetailsComponent implements OnInit, OnDestroy {
 
   @Output() readonly collapse = new EventEmitter<void>();
 
-  selectedImageData: ImageProcessResult | null = null;
-  loadingImageDetails = false;
+  imageMetadata: ImageMetadata | null = null;
+  loadingMetadata = false;
+  loadingAiTags = false;
   imageLoadError = '';
+  predictedTags: string[] = [];
   predictedTagsChecked: Record<string, boolean> = {};
   customTags: string[] = [];
   customTagInput = '';
@@ -57,8 +60,8 @@ export class ImageDetailsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.batchSub = this.batch.imageUpdated$.subscribe(({ imagePath, mergedTags }) => {
-      if (this._selectedImage?.path === imagePath && this.selectedImageData) {
-        this.selectedImageData = { ...this.selectedImageData, existing_tags: mergedTags };
+      if (this._selectedImage?.path === imagePath && this.imageMetadata) {
+        this.imageMetadata = { ...this.imageMetadata, existing_tags: mergedTags };
         this.customTags = [];
       }
     });
@@ -70,28 +73,55 @@ export class ImageDetailsComponent implements OnInit, OnDestroy {
 
   private async loadImageData(img: ImageFileInfo | null): Promise<void> {
     if (!img) {
-      this.selectedImageData = null;
+      this.imageMetadata = null;
+      this.predictedTags = [];
       return;
     }
-    this.selectedImageData = null;
-    this.loadingImageDetails = true;
+
+    this.imageMetadata = null;
+    this.predictedTags = [];
+    this.predictedTagsChecked = {};
+    this.loadingMetadata = true;
+    this.loadingAiTags = true;
     this.imageLoadError = '';
     this.customTags = [];
     this.customTagInput = '';
     this.saveSuccess = false;
     this.saveError = '';
 
+    // Step 1: fast path — load file metadata and EXIF only
     try {
-      const data = await this.tagger.getImageData(img.path);
-      this.selectedImageData = data;
-      this.predictedTagsChecked = {};
-      for (const tag of data.predicted_tags) {
-        this.predictedTagsChecked[tag] = true;
-      }
+      const meta = await this.tagger.getImageMetadata(img.path);
+      this.imageMetadata = meta;
     } catch (err: any) {
       this.imageLoadError = err.toString();
+      this.loadingMetadata = false;
+      this.loadingAiTags = false;
+      return;
     } finally {
-      this.loadingImageDetails = false;
+      this.loadingMetadata = false;
+    }
+
+    // Step 2: slow path — AI inference; spinner shown only in AI section
+    const pathAtStart = img.path;
+    try {
+      const tags = await this.tagger.getImageAiTags(img.path);
+      // Guard against stale response if user switched image while inferring
+      if (this._selectedImage?.path === pathAtStart) {
+        this.predictedTags = tags;
+        this.predictedTagsChecked = {};
+        for (const tag of tags) {
+          this.predictedTagsChecked[tag] = true;
+        }
+      }
+    } catch (err: any) {
+      if (this._selectedImage?.path === pathAtStart) {
+        this.imageLoadError = err.toString();
+      }
+    } finally {
+      if (this._selectedImage?.path === pathAtStart) {
+        this.loadingAiTags = false;
+      }
     }
   }
 
@@ -103,7 +133,7 @@ export class ImageDetailsComponent implements OnInit, OnDestroy {
       .filter(t => t.length > 0);
 
     for (const tag of newTags) {
-      if (!this.customTags.includes(tag) && !this.selectedImageData?.existing_tags.includes(tag)) {
+      if (!this.customTags.includes(tag) && !this.imageMetadata?.existing_tags.includes(tag)) {
         this.customTags.push(tag);
       }
     }
@@ -119,7 +149,7 @@ export class ImageDetailsComponent implements OnInit, OnDestroy {
   }
 
   async saveTags(): Promise<void> {
-    if (!this._selectedImage || !this.selectedImageData) return;
+    if (!this._selectedImage || !this.imageMetadata) return;
     this.savingMetadata = true;
     this.saveError = '';
     this.saveSuccess = false;
@@ -128,7 +158,7 @@ export class ImageDetailsComponent implements OnInit, OnDestroy {
       tag => this.predictedTagsChecked[tag],
     );
     const allTags = [
-      ...this.selectedImageData.existing_tags,
+      ...this.imageMetadata.existing_tags,
       ...activePredicted,
       ...this.customTags,
     ];
@@ -137,8 +167,8 @@ export class ImageDetailsComponent implements OnInit, OnDestroy {
     try {
       await this.tagger.writeTags(this._selectedImage.path, uniqueTags);
       this.saveSuccess = true;
-      const updatedData = await this.tagger.getImageData(this._selectedImage.path);
-      this.selectedImageData = updatedData;
+      const updatedMeta = await this.tagger.getImageMetadata(this._selectedImage.path);
+      this.imageMetadata = updatedMeta;
       this.customTags = [];
     } catch (err: any) {
       this.saveError = err.toString();

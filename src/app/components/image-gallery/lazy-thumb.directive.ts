@@ -54,11 +54,22 @@ export class LazyThumbDirective implements OnChanges, OnDestroy {
     this.observer.observe(this.el.nativeElement);
   }
 
+  // JPEG/PNG/WebP can be decoded natively by the browser via the asset protocol —
+  // no IPC round-trip or Rust decode needed.
+  private static readonly NATIVE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp']);
+
+  private isNativeFormat(): boolean {
+    const ext = this.imagePath.split('.').pop()?.toLowerCase() ?? '';
+    return LazyThumbDirective.NATIVE_EXTENSIONS.has(ext);
+  }
+
   private async load(): Promise<void> {
     try {
-      const thumb = await this.tagger.getThumbnail(this.imagePath);
+      const src = this.isNativeFormat()
+        ? this.tagger.toAssetUrl(this.imagePath)
+        : await this.tagger.getThumbnail(this.imagePath);
       const img = this.el.nativeElement;
-      img.src = thumb;
+      img.src = src;
       img.classList.remove('thumb-loading');
     } catch {
       this.el.nativeElement.classList.add('thumb-error');

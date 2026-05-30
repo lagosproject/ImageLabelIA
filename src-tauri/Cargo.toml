@@ -29,6 +29,7 @@ base64 = "0.22"
 walkdir = "2"
 rfd = "0.15"
 log = "0.4"
+dirs = "5"
 
 
 

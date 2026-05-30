@@ -17,9 +17,10 @@
       <div class="preview-name">{{ selectedImage.name }}</div>
     </div>
 
-    <div *ngIf="loadingImageDetails" class="details-loading">
+    <!-- Metadata loading (fast path) -->
+    <div *ngIf="loadingMetadata" class="details-loading">
       <div class="spinner"></div>
-      <p>Running ConvNeXt inference...</p>
+      <p>Loading image data...</p>
     </div>
 
     <div *ngIf="imageLoadError" class="error-banner">
@@ -27,7 +28,7 @@
       Error: {{ imageLoadError }}
     </div>
 
-    <ng-container *ngIf="!loadingImageDetails && selectedImageData">
+    <ng-container *ngIf="!loadingMetadata && imageMetadata">
       <!-- Metadata Specifications -->
       <div class="metadata-section spec-section">
         <h3 class="collapsible-header" (click)="metadataCollapsed = !metadataCollapsed">
@@ -35,33 +36,33 @@
           <svg class="chevron-icon" [class.collapsed]="metadataCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </h3>
         <div class="spec-grid" *ngIf="!metadataCollapsed">
-          <div class="spec-row" *ngIf="selectedImageData.dimensions">
+          <div class="spec-row" *ngIf="imageMetadata.dimensions">
             <span class="spec-label">Resolution</span>
-            <span class="spec-value">{{ selectedImageData.dimensions[0] }} × {{ selectedImageData.dimensions[1] }} px</span>
+            <span class="spec-value">{{ imageMetadata.dimensions[0] }} × {{ imageMetadata.dimensions[1] }} px</span>
           </div>
-          <div class="spec-row" *ngIf="selectedImageData.file_size_bytes">
+          <div class="spec-row" *ngIf="imageMetadata.file_size_bytes">
             <span class="spec-label">File Size</span>
-            <span class="spec-value">{{ formatBytes(selectedImageData.file_size_bytes) }}</span>
+            <span class="spec-value">{{ formatBytes(imageMetadata.file_size_bytes) }}</span>
           </div>
-          <div class="spec-row" *ngIf="selectedImageData.exif?.date_time">
+          <div class="spec-row" *ngIf="imageMetadata.exif?.date_time">
             <span class="spec-label">Date Taken</span>
-            <span class="spec-value">{{ selectedImageData.exif.date_time }}</span>
+            <span class="spec-value">{{ imageMetadata.exif.date_time }}</span>
           </div>
-          <div class="spec-row" *ngIf="selectedImageData.exif?.make || selectedImageData.exif?.model">
+          <div class="spec-row" *ngIf="imageMetadata.exif?.make || imageMetadata.exif?.model">
             <span class="spec-label">Camera</span>
-            <span class="spec-value">{{ selectedImageData.exif.make || '' }} {{ selectedImageData.exif.model || '' }}</span>
+            <span class="spec-value">{{ imageMetadata.exif.make || '' }} {{ imageMetadata.exif.model || '' }}</span>
           </div>
-          <div class="spec-row" *ngIf="selectedImageData.exif?.exposure_time || selectedImageData.exif?.aperture || selectedImageData.exif?.iso">
+          <div class="spec-row" *ngIf="imageMetadata.exif?.exposure_time || imageMetadata.exif?.aperture || imageMetadata.exif?.iso">
             <span class="spec-label">Exposure Settings</span>
             <span class="spec-value settings-tags">
-              <span *ngIf="selectedImageData.exif.aperture" class="spec-subbadge">ƒ/{{ selectedImageData.exif.aperture }}</span>
-              <span *ngIf="selectedImageData.exif.exposure_time" class="spec-subbadge">{{ selectedImageData.exif.exposure_time }}s</span>
-              <span *ngIf="selectedImageData.exif.iso" class="spec-subbadge">ISO {{ selectedImageData.exif.iso }}</span>
+              <span *ngIf="imageMetadata.exif.aperture" class="spec-subbadge">ƒ/{{ imageMetadata.exif.aperture }}</span>
+              <span *ngIf="imageMetadata.exif.exposure_time" class="spec-subbadge">{{ imageMetadata.exif.exposure_time }}s</span>
+              <span *ngIf="imageMetadata.exif.iso" class="spec-subbadge">ISO {{ imageMetadata.exif.iso }}</span>
             </span>
           </div>
-          <div class="spec-row" *ngIf="selectedImageData.exif?.focal_length">
+          <div class="spec-row" *ngIf="imageMetadata.exif?.focal_length">
             <span class="spec-label">Focal Length</span>
-            <span class="spec-value">{{ selectedImageData.exif.focal_length }}</span>
+            <span class="spec-value">{{ imageMetadata.exif.focal_length }}</span>
           </div>
         </div>
       </div>
@@ -69,35 +70,41 @@
       <!-- Existing Tags -->
       <div class="metadata-section">
         <h3 class="collapsible-header" (click)="existingTagsCollapsed = !existingTagsCollapsed">
-          <span>Existing Keywords <span class="badge">{{ selectedImageData.existing_tags.length }}</span></span>
+          <span>Existing Keywords <span class="badge">{{ imageMetadata.existing_tags.length }}</span></span>
           <svg class="chevron-icon" [class.collapsed]="existingTagsCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </h3>
         <div class="tags-container" *ngIf="!existingTagsCollapsed">
-          <span *ngIf="selectedImageData.existing_tags.length === 0" class="no-tags">No tags currently in metadata</span>
-          <span *ngFor="let tag of selectedImageData.existing_tags" class="tag-pill existing">{{ tag }}</span>
+          <span *ngIf="imageMetadata.existing_tags.length === 0" class="no-tags">No tags currently in metadata</span>
+          <span *ngFor="let tag of imageMetadata.existing_tags" class="tag-pill existing">{{ tag }}</span>
         </div>
       </div>
 
-      <!-- AI Predicted Tags -->
+      <!-- AI Predicted Tags — spinner scoped to this section only -->
       <div class="metadata-section">
         <h3 class="collapsible-header" (click)="predictedTagsCollapsed = !predictedTagsCollapsed">
           <span>AI Suggested Keywords</span>
           <svg class="chevron-icon" [class.collapsed]="predictedTagsCollapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </h3>
-        <div class="tags-container" *ngIf="!predictedTagsCollapsed">
-          <button
-            *ngFor="let tag of selectedImageData.predicted_tags"
-            class="tag-pill suggested-chip"
-            [class.active]="predictedTagsChecked[tag]"
-            (click)="togglePredictedTag(tag)"
-            [title]="predictedTagsChecked[tag] ? 'Click to deselect tag' : 'Click to select tag'"
-          >
-            <span class="chip-status-icon">
-              <svg *ngIf="predictedTagsChecked[tag]" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-              <svg *ngIf="!predictedTagsChecked[tag]" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            </span>
-            <span>{{ tag }}</span>
-          </button>
+        <div *ngIf="!predictedTagsCollapsed">
+          <div *ngIf="loadingAiTags" class="details-loading">
+            <div class="spinner"></div>
+            <p>Analyzing image...</p>
+          </div>
+          <div *ngIf="!loadingAiTags" class="tags-container">
+            <button
+              *ngFor="let tag of predictedTags"
+              class="tag-pill suggested-chip"
+              [class.active]="predictedTagsChecked[tag]"
+              (click)="togglePredictedTag(tag)"
+              [title]="predictedTagsChecked[tag] ? 'Click to deselect tag' : 'Click to select tag'"
+            >
+              <span class="chip-status-icon">
+                <svg *ngIf="predictedTagsChecked[tag]" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                <svg *ngIf="!predictedTagsChecked[tag]" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </span>
+              <span>{{ tag }}</span>
+            </button>
+          </div>
         </div>
       </div>
 

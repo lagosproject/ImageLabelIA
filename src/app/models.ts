@@ -23,6 +23,14 @@ export interface ImageProcessResult {
   exif: ExifData;
 }
 
+export interface ImageMetadata {
+  path: string;
+  existing_tags: string[];
+  dimensions?: [number, number];
+  file_size_bytes: number;
+  exif: ExifData;
+}
+
 export interface DepthLevelInfo {
   level: number;
   folder_count: number;

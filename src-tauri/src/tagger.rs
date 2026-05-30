@@ -57,6 +57,16 @@ pub struct ImageProcessResult {
     pub exif: ExifData,
 }
 
+// Lightweight metadata struct — no AI inference, returned immediately on image selection
+#[derive(Serialize, Deserialize)]
+pub struct ImageMetadata {
+    pub path: String,
+    pub existing_tags: Vec<String>,
+    pub dimensions: Option<(u32, u32)>,
+    pub file_size_bytes: u64,
+    pub exif: ExifData,
+}
+
 
 // Resolves symlinks and `..` segments so every command works on a real, canonical path.
 // Returns an error if the path does not exist on disk.
@@ -143,16 +153,46 @@ fn preprocess_image(path: &Path) -> Result<(Vec<f32>, DynamicImage), String> {
     Ok((input, img))
 }
 
-// Generate base64 thumbnail of the image for local preview
-fn get_thumbnail_base64(img: &DynamicImage) -> String {
+fn bytes_to_data_url(bytes: &[u8]) -> String {
+    format!("data:image/jpeg;base64,{}", STANDARD.encode(bytes))
+}
+
+fn get_thumbnail_jpeg_bytes(img: &DynamicImage) -> Option<Vec<u8>> {
     let thumbnail = img.thumbnail(256, 256);
     let mut buffer = Cursor::new(Vec::new());
     if thumbnail.write_to(&mut buffer, ImageFormat::Jpeg).is_ok() {
-        let base64_str = STANDARD.encode(buffer.into_inner());
-        format!("data:image/jpeg;base64,{}", base64_str)
+        Some(buffer.into_inner())
     } else {
-        "".to_string()
+        None
     }
+}
+
+// Used by get_image_data which already holds the decoded image in memory
+fn get_thumbnail_base64(img: &DynamicImage) -> String {
+    get_thumbnail_jpeg_bytes(img)
+        .map(|b| bytes_to_data_url(&b))
+        .unwrap_or_default()
+}
+
+// FNV-1a: stable across runs, no extra deps, good enough for a file cache key
+fn stable_hash(s: &str) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for byte in s.bytes() {
+        h ^= byte as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+
+// Cache key encodes path + mtime so edits to the source image bust the cache automatically
+fn thumb_cache_key(path: &Path) -> String {
+    let mtime = fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    format!("{:016x}", stable_hash(&format!("{}:{}", path.display(), mtime)))
 }
 
 // Check if a file extension is a supported image format
@@ -194,12 +234,40 @@ pub fn get_subfolders(folder_path: String) -> Result<Vec<String>, String> {
     Ok(subfolders)
 }
 
-// Tauri Command: Generate a small 256×256 JPEG thumbnail for gallery display
+// Tauri Command: Generate a small 256×256 JPEG thumbnail for gallery display.
+// Fast path: browser-native formats (JPEG/PNG) are served directly via the asset
+// protocol in the frontend and never reach this command.
+// This path handles DNG/TIFF/RAW with a persistent disk cache so each file is
+// decoded at most once, and the blocking decode runs off the async executor.
 #[tauri::command]
-pub fn get_thumbnail(image_path: String) -> Result<String, String> {
+pub async fn get_thumbnail(app: AppHandle, image_path: String) -> Result<String, String> {
     let path = resolve_safe_path(&image_path)?;
-    let img = image::open(&path).map_err(|e| format!("Cannot open image: {}", e))?;
-    Ok(get_thumbnail_base64(&img))
+
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("thumbs");
+    let cache_file = cache_dir.join(format!("{}.jpg", thumb_cache_key(&path)));
+
+    if cache_file.exists() {
+        if let Ok(bytes) = fs::read(&cache_file) {
+            return Ok(bytes_to_data_url(&bytes));
+        }
+    }
+
+    let jpeg_bytes = tauri::async_runtime::spawn_blocking(move || -> Result<Vec<u8>, String> {
+        let img = image::open(&path).map_err(|e| format!("Cannot open image: {}", e))?;
+        get_thumbnail_jpeg_bytes(&img).ok_or_else(|| "Failed to encode thumbnail".to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    // Best-effort write — a failed cache write is not fatal
+    let _ = fs::create_dir_all(&cache_dir);
+    let _ = fs::write(&cache_file, &jpeg_bytes);
+
+    Ok(bytes_to_data_url(&jpeg_bytes))
 }
 
 // Tauri Command: Get image files inside a folder (for the gallery)
@@ -330,6 +398,106 @@ pub async fn get_image_data(
     })
 }
 
+// Tauri Command: Read file metadata and EXIF without running AI inference (fast path)
+#[tauri::command]
+pub async fn get_image_metadata(image_path: String) -> Result<ImageMetadata, String> {
+    let safe_path = resolve_safe_path(&image_path)?;
+
+    let file_size_bytes = fs::metadata(&safe_path).map(|m| m.len()).unwrap_or(0);
+
+    let dimensions = image::open(&safe_path)
+        .map(|img| (img.width(), img.height()))
+        .ok();
+
+    let (existing_tags, exif) = match rexiv2::Metadata::new_from_path(&safe_path) {
+        Ok(meta) => {
+            let mut tags = Vec::new();
+            if let Ok(iptc_tags) = meta.get_tag_multiple_strings("Iptc.Application2.Keywords") {
+                tags.extend(iptc_tags);
+            }
+            if let Ok(xmp_tags) = meta.get_tag_multiple_strings("Xmp.dc.subject") {
+                tags.extend(xmp_tags);
+            }
+            tags.sort();
+            tags.dedup();
+
+            let exif_data = ExifData {
+                make: meta.get_tag_string("Exif.Image.Make").ok(),
+                model: meta.get_tag_string("Exif.Image.Model").ok(),
+                exposure_time: meta.get_tag_string("Exif.Photo.ExposureTime").ok(),
+                aperture: meta.get_tag_string("Exif.Photo.FNumber").ok(),
+                iso: meta.get_tag_string("Exif.Photo.ISOSpeedRatings").ok(),
+                date_time: meta
+                    .get_tag_string("Exif.Photo.DateTimeOriginal")
+                    .ok()
+                    .or_else(|| meta.get_tag_string("Exif.Image.DateTime").ok()),
+                focal_length: meta.get_tag_string("Exif.Photo.FocalLength").ok(),
+            };
+
+            (tags, exif_data)
+        }
+        Err(_) => (Vec::new(), ExifData::default()),
+    };
+
+    Ok(ImageMetadata {
+        path: image_path,
+        existing_tags,
+        dimensions,
+        file_size_bytes,
+        exif,
+    })
+}
+
+// Tauri Command: Run only ConvNeXt inference, return predicted tag names
+#[tauri::command]
+pub async fn get_image_ai_tags(
+    app: AppHandle,
+    state: tauri::State<'_, TaggerState>,
+    image_path: String,
+) -> Result<Vec<String>, String> {
+    let safe_path = resolve_safe_path(&image_path)?;
+
+    load_model_if_needed(&app, &state)?;
+
+    let (input, _img) = preprocess_image(&safe_path)?;
+
+    let shape = [1usize, 3, INPUT_SIZE, INPUT_SIZE];
+    let input_tensor = ort::value::Tensor::from_array((shape, input))
+        .map_err(|e| format!("Failed to create input tensor: {}", e))?;
+
+    let session_inputs = ort::inputs!["pixel_values" => input_tensor];
+
+    let mut session_guard = state.session.lock().map_err(|e| e.to_string())?;
+    let session = session_guard.as_mut().ok_or("ONNX session not initialized")?;
+
+    let outputs = session
+        .run(session_inputs)
+        .map_err(|e| format!("Inference failed: {}", e))?;
+
+    let output_tensor = outputs["logits"]
+        .try_extract_tensor::<f32>()
+        .map_err(|e| format!("Failed to extract output tensor: {}", e))?;
+
+    let logits = output_tensor.1;
+
+    let mut indexed_logits: Vec<(usize, &f32)> = logits.iter().enumerate().collect();
+    indexed_logits.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    let labels_guard = state.labels.lock().map_err(|e| e.to_string())?;
+    let mut predicted_tags = Vec::new();
+
+    for i in 0..10 {
+        if let Some(&(idx, _val)) = indexed_logits.get(i) {
+            if let Some(label) = labels_guard.get(idx) {
+                let clean_label = label.split(',').next().unwrap_or(label.as_str()).trim().to_string();
+                predicted_tags.push(clean_label);
+            }
+        }
+    }
+
+    Ok(predicted_tags)
+}
+
 // Tauri Command: Select folder using a native directory picker
 #[tauri::command]
 pub fn select_folder() -> Result<Option<String>, String> {
@@ -337,6 +505,37 @@ pub fn select_folder() -> Result<Option<String>, String> {
         .set_title("Select Folder to Scan")
         .pick_folder();
     Ok(folder.map(|p| p.to_string_lossy().to_string()))
+}
+
+fn last_folder_file(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_data_dir().ok().map(|d| d.join("last_folder.txt"))
+}
+
+// Tauri Command: Returns the folder to open on startup — last used folder if it still exists,
+// otherwise the user's home directory.
+#[tauri::command]
+pub fn get_initial_folder(app: AppHandle) -> String {
+    if let Some(file) = last_folder_file(&app) {
+        if let Ok(saved) = fs::read_to_string(&file) {
+            let saved = saved.trim().to_string();
+            if !saved.is_empty() && Path::new(&saved).is_dir() {
+                return saved;
+            }
+        }
+    }
+    dirs::home_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default()
+}
+
+// Tauri Command: Persists the last opened folder path so it can be restored on next launch.
+#[tauri::command]
+pub fn save_last_folder(app: AppHandle, folder_path: String) -> Result<(), String> {
+    let file = last_folder_file(&app).ok_or("Cannot resolve app data directory")?;
+    if let Some(parent) = file.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(&file, &folder_path).map_err(|e| e.to_string())
 }
 
 
