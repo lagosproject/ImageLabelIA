@@ -1,19 +1,9 @@
 mod tagger;
 
 use tagger::{
-    TaggerState,
-    get_subfolders,
-    get_images_in_folder,
-    get_thumbnail,
-    get_image_data,
-    get_image_metadata,
-    get_image_ai_tags,
-    write_image_tags,
-    select_folder,
-    get_folder_depth_analysis,
-    get_recursive_images,
-    get_initial_folder,
-    save_last_folder,
+    get_folder_depth_analysis, get_image_ai_tags, get_image_data, get_image_metadata,
+    get_images_in_folder, get_initial_folder, get_recursive_images, get_subfolders, get_thumbnail,
+    save_last_folder, select_folder, write_image_tags, TaggerState,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

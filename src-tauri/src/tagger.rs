@@ -1,12 +1,12 @@
+use base64::{engine::general_purpose::STANDARD, Engine};
+use image::{DynamicImage, ImageFormat};
+use ort::session::Session;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
-use ort::session::Session;
-use image::{DynamicImage, ImageFormat};
-use base64::{engine::general_purpose::STANDARD, Engine};
-use serde::{Serialize, Deserialize};
 use walkdir::WalkDir;
 
 const INPUT_SIZE: usize = 224;
@@ -67,7 +67,6 @@ pub struct ImageMetadata {
     pub exif: ExifData,
 }
 
-
 // Resolves symlinks and `..` segments so every command works on a real, canonical path.
 // Returns an error if the path does not exist on disk.
 fn resolve_safe_path(path_str: &str) -> Result<PathBuf, String> {
@@ -114,7 +113,10 @@ fn load_model_if_needed(app_handle: &AppHandle, state: &TaggerState) -> Result<(
         .map_err(|e| format!("Failed to parse labels JSON: {}", e))?;
 
     // Load the ONNX Runtime session
-    log::info!("Loading ConvNeXt ONNX session from: {}...", model_path.display());
+    log::info!(
+        "Loading ConvNeXt ONNX session from: {}...",
+        model_path.display()
+    );
     let session = Session::builder()
         .map_err(|e| e.to_string())?
         .commit_from_file(model_path)
@@ -130,7 +132,11 @@ fn load_model_if_needed(app_handle: &AppHandle, state: &TaggerState) -> Result<(
 // Image preprocessing for ConvNeXt (Resize, Normalize, flat NCHW vector)
 fn preprocess_image(path: &Path) -> Result<(Vec<f32>, DynamicImage), String> {
     let img = image::open(path).map_err(|e| format!("Failed to open image: {}", e))?;
-    let resized = img.resize_exact(INPUT_SIZE as u32, INPUT_SIZE as u32, image::imageops::FilterType::Triangle);
+    let resized = img.resize_exact(
+        INPUT_SIZE as u32,
+        INPUT_SIZE as u32,
+        image::imageops::FilterType::Triangle,
+    );
     let rgb = resized.to_rgb8();
 
     let mut input = vec![0.0f32; 3 * CHANNEL_SIZE];
@@ -192,7 +198,10 @@ fn thumb_cache_key(path: &Path) -> String {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    format!("{:016x}", stable_hash(&format!("{}:{}", path.display(), mtime)))
+    format!(
+        "{:016x}",
+        stable_hash(&format!("{}:{}", path.display(), mtime))
+    )
 }
 
 // Check if a file extension is a supported image format
@@ -337,7 +346,8 @@ pub async fn get_image_data(
                 exposure_time: meta.get_tag_string("Exif.Photo.ExposureTime").ok(),
                 aperture: meta.get_tag_string("Exif.Photo.FNumber").ok(),
                 iso: meta.get_tag_string("Exif.Photo.ISOSpeedRatings").ok(),
-                date_time: meta.get_tag_string("Exif.Photo.DateTimeOriginal")
+                date_time: meta
+                    .get_tag_string("Exif.Photo.DateTimeOriginal")
                     .ok()
                     .or_else(|| meta.get_tag_string("Exif.Image.DateTime").ok()),
                 focal_length: meta.get_tag_string("Exif.Photo.FocalLength").ok(),
@@ -350,14 +360,16 @@ pub async fn get_image_data(
 
     // 5. Run ONNX Inference
     let mut session_guard = state.session.lock().map_err(|e| e.to_string())?;
-    let session = session_guard.as_mut().ok_or("ONNX session not initialized")?;
+    let session = session_guard
+        .as_mut()
+        .ok_or("ONNX session not initialized")?;
 
     let shape = [1usize, 3, INPUT_SIZE, INPUT_SIZE];
     let input_tensor = ort::value::Tensor::from_array((shape, input))
         .map_err(|e| format!("Failed to create input tensor: {}", e))?;
-    
+
     let session_inputs = ort::inputs!["pixel_values" => input_tensor];
-        
+
     let outputs = session
         .run(session_inputs)
         .map_err(|e| format!("Inference failed: {}", e))?;
@@ -376,12 +388,17 @@ pub async fn get_image_data(
     // Get top 10 labels
     let labels_guard = state.labels.lock().map_err(|e| e.to_string())?;
     let mut predicted_tags = Vec::new();
-    
+
     for i in 0..10 {
         if let Some(&(idx, _val)) = indexed_logits.get(i) {
             if let Some(label) = labels_guard.get(idx) {
                 // Split comma-separated class labels from ImageNet-22k and take first name
-                let clean_label = label.split(',').next().unwrap_or(label.as_str()).trim().to_string();
+                let clean_label = label
+                    .split(',')
+                    .next()
+                    .unwrap_or(label.as_str())
+                    .trim()
+                    .to_string();
                 predicted_tags.push(clean_label);
             }
         }
@@ -468,7 +485,9 @@ pub async fn get_image_ai_tags(
     let session_inputs = ort::inputs!["pixel_values" => input_tensor];
 
     let mut session_guard = state.session.lock().map_err(|e| e.to_string())?;
-    let session = session_guard.as_mut().ok_or("ONNX session not initialized")?;
+    let session = session_guard
+        .as_mut()
+        .ok_or("ONNX session not initialized")?;
 
     let outputs = session
         .run(session_inputs)
@@ -489,7 +508,12 @@ pub async fn get_image_ai_tags(
     for i in 0..10 {
         if let Some(&(idx, _val)) = indexed_logits.get(i) {
             if let Some(label) = labels_guard.get(idx) {
-                let clean_label = label.split(',').next().unwrap_or(label.as_str()).trim().to_string();
+                let clean_label = label
+                    .split(',')
+                    .next()
+                    .unwrap_or(label.as_str())
+                    .trim()
+                    .to_string();
                 predicted_tags.push(clean_label);
             }
         }
@@ -508,7 +532,10 @@ pub fn select_folder() -> Result<Option<String>, String> {
 }
 
 fn last_folder_file(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_data_dir().ok().map(|d| d.join("last_folder.txt"))
+    app.path()
+        .app_data_dir()
+        .ok()
+        .map(|d| d.join("last_folder.txt"))
 }
 
 // Tauri Command: Returns the folder to open on startup — last used folder if it still exists,
@@ -537,7 +564,6 @@ pub fn save_last_folder(app: AppHandle, folder_path: String) -> Result<(), Strin
     }
     fs::write(&file, &folder_path).map_err(|e| e.to_string())
 }
-
 
 // Tauri Command: Write metadata tags to image file (IPTC / XMP keywords)
 #[tauri::command]
@@ -595,8 +621,10 @@ pub fn get_folder_depth_analysis(folder_path: String) -> Result<FolderDepthRepor
     }
 
     let mut max_depth = 0usize;
-    let mut level_folders: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-    let mut level_images: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    let mut level_folders: std::collections::HashMap<usize, usize> =
+        std::collections::HashMap::new();
+    let mut level_images: std::collections::HashMap<usize, usize> =
+        std::collections::HashMap::new();
     level_images.insert(0, 0);
 
     let walker = WalkDir::new(&path)
@@ -653,7 +681,10 @@ pub fn get_folder_depth_analysis(folder_path: String) -> Result<FolderDepthRepor
 
 // Tauri Command: Gathers all supported image file paths from the active folder matching the specified depth restriction
 #[tauri::command]
-pub fn get_recursive_images(folder_path: String, target_depth: usize) -> Result<Vec<ImageFileInfo>, String> {
+pub fn get_recursive_images(
+    folder_path: String,
+    target_depth: usize,
+) -> Result<Vec<ImageFileInfo>, String> {
     let path = resolve_safe_path(&folder_path)?;
     if !path.is_dir() {
         return Err("Path is not a valid directory".to_string());
