@@ -18,10 +18,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            args: '--target universal-apple-darwin'
-          - platform: 'ubuntu-22.04'
+          - platform: 'macos-latest'   # Apple Silicon (arm64)
+            args: '--target aarch64-apple-darwin'
+            rust_targets: 'aarch64-apple-darwin'
+          - platform: 'macos-13'       # Intel (x86_64) — last Intel GitHub runner
+            args: '--target x86_64-apple-darwin'
+            rust_targets: 'x86_64-apple-darwin'
+          - platform: 'ubuntu-24.04'   # glibc 2.39 — required by ORT prebuilt binaries
             args: ''
+            rust_targets: ''
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-gnu'
+            rust_targets: 'x86_64-pc-windows-gnu'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -41,11 +49,11 @@ jobs:
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.rust_targets }}
 
-      # Install System Dependencies (Linux)
+      # ── Linux ────────────────────────────────────────────────────────────────
       - name: Install Dependencies (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -61,13 +69,32 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      # Install System Dependencies (macOS)
+      # ── macOS ────────────────────────────────────────────────────────────────
       - name: Install Dependencies (macOS)
-        if: matrix.platform == 'macos-latest'
-        run: |
-          brew install gexiv2 pkg-config
+        if: startsWith(matrix.platform, 'macos')
+        run: brew install gexiv2 pkg-config
 
-      # Setup Python and download ONNX weights so Tauri can bundle them
+      # ── Windows ──────────────────────────────────────────────────────────────
+      # Uses MSYS2/MINGW64 to get a pkg-config-compatible gexiv2 build.
+      # The GNU Rust target links against these MinGW libraries directly.
+      - name: Install Dependencies (Windows)
+        if: matrix.platform == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gexiv2
+            mingw-w64-x86_64-pkg-config
+
+      - name: Configure Windows build environment
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          echo "PKG_CONFIG_PATH=C:/msys64/mingw64/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "C:/msys64/mingw64/bin" >> "$GITHUB_PATH"
+
+      # ── Shared ───────────────────────────────────────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -87,11 +114,9 @@ jobs:
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: python download_model.py
 
-      # Install frontend dependencies and build
       - name: Install Frontend Dependencies
         run: pnpm install --frozen-lockfile
 
-      # Build and create Github Release
       - name: Build & Publish Release
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
