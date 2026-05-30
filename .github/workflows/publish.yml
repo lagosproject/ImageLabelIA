@@ -27,9 +27,8 @@ jobs:
           - platform: 'ubuntu-24.04'   # glibc 2.39 — required by ORT prebuilt binaries
             args: ''
             rust_targets: ''
-          - platform: 'windows-latest'
-            args: '--target x86_64-pc-windows-gnu'
-            rust_targets: 'x86_64-pc-windows-gnu'
+          # Windows removed: mingw-w64-x86_64-gexiv2 does not exist in MSYS2.
+          # Add back once gexiv2 is available via vcpkg + x86_64-pc-windows-msvc target.
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -87,31 +86,6 @@ jobs:
         if: startsWith(matrix.platform, 'macos')
         run: brew install gexiv2 pkg-config
 
-
-      # ── Windows ──────────────────────────────────────────────────────────────
-      # Uses MSYS2/MINGW64 to get a pkg-config-compatible gexiv2 build.
-      # The GNU Rust target links against these MinGW libraries directly.
-      - name: Setup MSYS2 (Windows)
-        if: matrix.platform == 'windows-latest'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-
-      - name: Install MSYS2 packages (Windows)
-        if: matrix.platform == 'windows-latest'
-        shell: msys2 {0}
-        run: |
-          pacman -Sy --noconfirm
-          pacman -S --noconfirm mingw-w64-x86_64-gexiv2 mingw-w64-x86_64-pkg-config
-
-      - name: Configure Windows build environment
-        if: matrix.platform == 'windows-latest'
-        shell: bash
-        run: |
-          echo "PKG_CONFIG_PATH=C:/msys64/mingw64/lib/pkgconfig" >> "$GITHUB_ENV"
-          echo "C:/msys64/mingw64/bin" >> "$GITHUB_PATH"
-
       # ── Shared ───────────────────────────────────────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -121,14 +95,20 @@ jobs:
       - name: Install download script dependencies
         run: pip install huggingface-hub
 
-      # Must run after setup-python, which overwrites PKG_CONFIG_PATH with its own hostedtoolcache path
+      # Run after setup-python: it overwrites PKG_CONFIG_PATH, so we re-set it here.
+      # Use `find` to locate gexiv2.pc regardless of where brew puts it.
       - name: Configure macOS PKG_CONFIG_PATH
         if: startsWith(matrix.platform, 'macos')
         run: |
-          BREW_PKG=$(brew --prefix gexiv2)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig
-          echo "PKG_CONFIG_PATH=${BREW_PKG}:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH_aarch64_apple_darwin=${BREW_PKG}" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH_x86_64_apple_darwin=${BREW_PKG}" >> $GITHUB_ENV
+          GEXIV2_PC=$(find "$(brew --prefix)" -name "gexiv2.pc" 2>/dev/null | head -1)
+          if [ -z "$GEXIV2_PC" ]; then
+            echo "ERROR: gexiv2.pc not found after brew install" && exit 1
+          fi
+          GEXIV2_PC_DIR=$(dirname "$GEXIV2_PC")
+          BREW_PKGCONFIG="${GEXIV2_PC_DIR}:$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig"
+          echo "PKG_CONFIG_PATH=${BREW_PKGCONFIG}:${PKG_CONFIG_PATH:-}" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH_aarch64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH_x86_64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
 
       - name: Cache ONNX model
         uses: actions/cache@v4
