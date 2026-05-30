@@ -50,7 +50,7 @@ jobs:
   # 2. Backend: Rust & Tauri Quality Checks
   # ----------------------------------------------------------------------------
   backend-check:
-    name: Rust backend Clipy & Test
+    name: Rust backend Clippy & Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

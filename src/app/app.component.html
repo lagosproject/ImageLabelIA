@@ -10,25 +10,25 @@
 
     <div class="folder-search-container">
       <div class="segmented-btn-group">
-        <button 
-          class="scan-btn batch-tag-btn" 
-          [class.running]="batchRunning"
-          [style.background]="getBatchProgressGradient()"
+        <button
+          class="scan-btn batch-tag-btn"
+          [class.running]="batch.running"
+          [style.background]="batch.getProgressGradient()"
           (click)="onBatchTagClick()"
           [disabled]="images.length === 0 && subfolders.length === 0"
-          [title]="batchRunning ? 'Click to cancel auto-tagging folder' : 'Automatically run AI keyword tagging on all images in folder'"
+          [title]="batch.running ? 'Click to cancel auto-tagging folder' : 'Automatically run AI keyword tagging on all images in folder'"
         >
-          <span *ngIf="!batchRunning">
+          <span *ngIf="!batch.running">
             <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: middle;"><path d="m12 3-1.912 5.886L4.202 9l5.886 1.912L12 16.798l1.912-5.886L19.798 9l-5.886-1.912L12 3Z"/></svg>
             <span style="vertical-align: middle;">Auto-Tag Folder</span>
           </span>
-          <span *ngIf="batchRunning">
-            {{ batchProgressPercent }}% · Cancel
+          <span *ngIf="batch.running">
+            {{ batch.progressPercent }}% · Cancel
           </span>
         </button>
         
-        <button 
-          *ngIf="!batchRunning"
+        <button
+          *ngIf="!batch.running"
           class="config-dropdown-btn" 
           (click)="openConfigModal()"
           [disabled]="images.length === 0 && subfolders.length === 0"
@@ -37,6 +37,12 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
         </button>
       </div>
+    </div>
+
+    <div class="batch-error-banner" *ngIf="batchError">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+      <span>{{ batchError }}</span>
+      <button class="banner-close-btn" (click)="batchError = ''">&times;</button>
     </div>
   </header>
 
@@ -150,8 +156,8 @@
 
         <!-- Gallery Grid (Scalable) -->
         <div class="image-grid scale-{{ gridScale }}" *ngIf="images.length > 0">
-          <div 
-            *ngFor="let img of filteredImages" 
+          <div
+            *ngFor="let img of filteredImages; trackBy: trackByImagePath"
             class="image-card"
             [class.active]="selectedImage?.path === img.path"
             (click)="selectImage(img)"
@@ -383,7 +389,7 @@
 </div>
 
 <!-- Batch Tagging Report Modal -->
-<div class="modal-overlay" *ngIf="batchReport">
+<div class="modal-overlay" *ngIf="batch.report as batchReport">
   <div class="modal-card">
     <div class="modal-header">
       <h2>Auto-Tagging Report</h2>
@@ -414,6 +420,10 @@
         <div class="report-stat-card">
           <span class="stat-label">Tags Added</span>
           <span class="stat-val accent">{{ batchReport.tagsAdded }}</span>
+        </div>
+        <div class="report-stat-card" *ngIf="batchReport.tagsRemoved > 0">
+          <span class="stat-label">Tags Removed</span>
+          <span class="stat-val failure">{{ batchReport.tagsRemoved }}</span>
         </div>
       </div>
 

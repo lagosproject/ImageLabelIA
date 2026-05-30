@@ -1,12 +1,16 @@
 use std::fs;
 use std::io::Cursor;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 use ort::session::Session;
 use image::{DynamicImage, ImageFormat};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Serialize, Deserialize};
+use walkdir::WalkDir;
+
+const INPUT_SIZE: usize = 224;
+const CHANNEL_SIZE: usize = INPUT_SIZE * INPUT_SIZE;
 
 // Global state for Tauri to share the ONNX session and the labels list
 pub struct TaggerState {
@@ -30,7 +34,7 @@ pub struct ImageFileInfo {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ExifData {
     pub make: Option<String>,
     pub model: Option<String>,
@@ -53,6 +57,14 @@ pub struct ImageProcessResult {
     pub exif: ExifData,
 }
 
+
+// Resolves symlinks and `..` segments so every command works on a real, canonical path.
+// Returns an error if the path does not exist on disk.
+fn resolve_safe_path(path_str: &str) -> Result<PathBuf, String> {
+    Path::new(path_str)
+        .canonicalize()
+        .map_err(|e| format!("Invalid path '{}': {}", path_str, e))
+}
 
 // Helper to lazily load the ONNX session and class labels if not loaded yet
 fn load_model_if_needed(app_handle: &AppHandle, state: &TaggerState) -> Result<(), String> {
@@ -92,7 +104,7 @@ fn load_model_if_needed(app_handle: &AppHandle, state: &TaggerState) -> Result<(
         .map_err(|e| format!("Failed to parse labels JSON: {}", e))?;
 
     // Load the ONNX Runtime session
-    println!("Loading ConvNeXt ONNX session from: {}...", model_path.display());
+    log::info!("Loading ConvNeXt ONNX session from: {}...", model_path.display());
     let session = Session::builder()
         .map_err(|e| e.to_string())?
         .commit_from_file(model_path)
@@ -101,17 +113,17 @@ fn load_model_if_needed(app_handle: &AppHandle, state: &TaggerState) -> Result<(
     *session_guard = Some(session);
     *labels_guard = labels;
 
-    println!("ConvNeXt model and labels loaded successfully!");
+    log::info!("ConvNeXt model and labels loaded successfully.");
     Ok(())
 }
 
 // Image preprocessing for ConvNeXt (Resize, Normalize, flat NCHW vector)
-fn preprocess_image(path: &str) -> Result<(Vec<f32>, DynamicImage), String> {
+fn preprocess_image(path: &Path) -> Result<(Vec<f32>, DynamicImage), String> {
     let img = image::open(path).map_err(|e| format!("Failed to open image: {}", e))?;
-    let resized = img.resize_exact(224, 224, image::imageops::FilterType::Triangle);
+    let resized = img.resize_exact(INPUT_SIZE as u32, INPUT_SIZE as u32, image::imageops::FilterType::Triangle);
     let rgb = resized.to_rgb8();
 
-    let mut input = vec![0.0f32; 3 * 224 * 224];
+    let mut input = vec![0.0f32; 3 * CHANNEL_SIZE];
 
     // ImageNet mean and standard deviation
     let mean = [0.485, 0.456, 0.406];
@@ -122,10 +134,10 @@ fn preprocess_image(path: &str) -> Result<(Vec<f32>, DynamicImage), String> {
         let g = (pixel[1] as f32 / 255.0 - mean[1]) / std[1];
         let b = (pixel[2] as f32 / 255.0 - mean[2]) / std[2];
 
-        let idx = (y as usize) * 224 + (x as usize);
+        let idx = (y as usize) * INPUT_SIZE + (x as usize);
         input[idx] = r;
-        input[50176 + idx] = g;
-        input[100352 + idx] = b;
+        input[CHANNEL_SIZE + idx] = g;
+        input[2 * CHANNEL_SIZE + idx] = b;
     }
 
     Ok((input, img))
@@ -158,13 +170,13 @@ fn is_supported_image(path: &Path) -> bool {
 // Tauri Command: Get subfolders of a given folder path (for the treeview)
 #[tauri::command]
 pub fn get_subfolders(folder_path: String) -> Result<Vec<String>, String> {
-    let path = Path::new(&folder_path);
-    if !path.exists() || !path.is_dir() {
-        return Err("Invalid folder path".to_string());
+    let path = resolve_safe_path(&folder_path)?;
+    if !path.is_dir() {
+        return Err("Path is not a valid directory".to_string());
     }
 
     let mut subfolders = Vec::new();
-    if let Ok(entries) = fs::read_dir(path) {
+    if let Ok(entries) = fs::read_dir(&path) {
         for entry in entries.flatten() {
             if let Ok(file_type) = entry.file_type() {
                 if file_type.is_dir() {
@@ -185,13 +197,13 @@ pub fn get_subfolders(folder_path: String) -> Result<Vec<String>, String> {
 // Tauri Command: Get image files inside a folder (for the gallery)
 #[tauri::command]
 pub fn get_images_in_folder(folder_path: String) -> Result<Vec<ImageFileInfo>, String> {
-    let path = Path::new(&folder_path);
-    if !path.exists() || !path.is_dir() {
-        return Err("Invalid folder path".to_string());
+    let path = resolve_safe_path(&folder_path)?;
+    if !path.is_dir() {
+        return Err("Path is not a valid directory".to_string());
     }
 
     let mut images = Vec::new();
-    if let Ok(entries) = fs::read_dir(path) {
+    if let Ok(entries) = fs::read_dir(&path) {
         for entry in entries.flatten() {
             let entry_path = entry.path();
             if entry_path.is_file() && is_supported_image(&entry_path) {
@@ -216,20 +228,22 @@ pub async fn get_image_data(
     state: tauri::State<'_, TaggerState>,
     image_path: String,
 ) -> Result<ImageProcessResult, String> {
+    let safe_path = resolve_safe_path(&image_path)?;
+
     // 1. Ensure model is loaded
     load_model_if_needed(&app, &state)?;
 
     // 2. Preprocess image and get dimensions
-    let (input, img) = preprocess_image(&image_path)?;
+    let (input, img) = preprocess_image(&safe_path)?;
     let dimensions = (img.width(), img.height());
 
     // 3. Generate base64 thumbnail
     let thumbnail = get_thumbnail_base64(&img);
 
     // 4. Read file size and EXIF metadata using rexiv2
-    let file_size_bytes = fs::metadata(&image_path).map(|m| m.len()).unwrap_or(0);
-    
-    let (existing_tags, exif) = match rexiv2::Metadata::new_from_path(&image_path) {
+    let file_size_bytes = fs::metadata(&safe_path).map(|m| m.len()).unwrap_or(0);
+
+    let (existing_tags, exif) = match rexiv2::Metadata::new_from_path(&safe_path) {
         Ok(meta) => {
             let mut tags = Vec::new();
             if let Ok(iptc_tags) = meta.get_tag_multiple_strings("Iptc.Application2.Keywords") {
@@ -255,25 +269,14 @@ pub async fn get_image_data(
 
             (tags, exif_data)
         }
-        Err(_) => {
-            let exif_data = ExifData {
-                make: None,
-                model: None,
-                exposure_time: None,
-                aperture: None,
-                iso: None,
-                date_time: None,
-                focal_length: None,
-            };
-            (Vec::new(), exif_data)
-        }
+        Err(_) => (Vec::new(), ExifData::default()),
     };
 
     // 5. Run ONNX Inference
     let mut session_guard = state.session.lock().map_err(|e| e.to_string())?;
     let session = session_guard.as_mut().ok_or("ONNX session not initialized")?;
 
-    let shape = [1usize, 3, 224, 224];
+    let shape = [1usize, 3, INPUT_SIZE, INPUT_SIZE];
     let input_tensor = ort::value::Tensor::from_array((shape, input))
         .map_err(|e| format!("Failed to create input tensor: {}", e))?;
     
@@ -332,18 +335,30 @@ pub fn select_folder() -> Result<Option<String>, String> {
 // Tauri Command: Write metadata tags to image file (IPTC / XMP keywords)
 #[tauri::command]
 pub fn write_image_tags(image_path: String, tags: Vec<String>) -> Result<(), String> {
-    let meta = rexiv2::Metadata::new_from_path(&image_path)
+    let safe_path = resolve_safe_path(&image_path)?;
+
+    for tag in &tags {
+        if tag.len() > 256 {
+            return Err(format!(
+                "Tag '{}...' exceeds the maximum allowed length of 256 characters.",
+                &tag[..32.min(tag.len())]
+            ));
+        }
+    }
+
+    let meta = rexiv2::Metadata::new_from_path(&safe_path)
         .map_err(|e| format!("Failed to open image metadata: {}", e))?;
 
     let tag_refs: Vec<&str> = tags.iter().map(|s| s.as_str()).collect();
 
-    // Write to IPTC keywords
+    // IPTC is best-effort — not supported by all formats (e.g. PNG)
     let _ = meta.set_tag_multiple_strings("Iptc.Application2.Keywords", &tag_refs);
 
-    // Write to XMP Subject
-    let _ = meta.set_tag_multiple_strings("Xmp.dc.subject", &tag_refs);
+    // XMP is the universal fallback — propagate failure so the frontend knows
+    meta.set_tag_multiple_strings("Xmp.dc.subject", &tag_refs)
+        .map_err(|e| format!("Failed to write XMP tags: {}", e))?;
 
-    meta.save_to_file(&image_path)
+    meta.save_to_file(&safe_path)
         .map_err(|e| format!("Failed to save image metadata: {}", e))?;
 
     Ok(())
@@ -364,51 +379,42 @@ pub struct FolderDepthReport {
     pub levels: Vec<DepthLevelInfo>,
 }
 
-fn traverse_folder(
-    current_path: &Path,
-    current_depth: usize,
-    max_depth: &mut usize,
-    level_folders: &mut std::collections::HashMap<usize, usize>,
-    level_images: &mut std::collections::HashMap<usize, usize>,
-) {
-    if current_depth > *max_depth {
-        *max_depth = current_depth;
-    }
-
-    if let Ok(entries) = fs::read_dir(current_path) {
-        for entry in entries.flatten() {
-            let entry_path = entry.path();
-            if entry_path.is_dir() {
-                if let Some(name) = entry.file_name().to_str() {
-                    if !name.starts_with('.') {
-                        let next_depth = current_depth + 1;
-                        *level_folders.entry(next_depth).or_insert(0) += 1;
-                        traverse_folder(&entry_path, next_depth, max_depth, level_folders, level_images);
-                    }
-                }
-            } else if entry_path.is_file() && is_supported_image(&entry_path) {
-                *level_images.entry(current_depth).or_insert(0) += 1;
-            }
-        }
-    }
-}
-
 // Tauri Command: Performs structural scan of the directory to analyze subfolders and image densities per nesting depth
 #[tauri::command]
 pub fn get_folder_depth_analysis(folder_path: String) -> Result<FolderDepthReport, String> {
-    let path = Path::new(&folder_path);
-    if !path.exists() || !path.is_dir() {
-        return Err("Invalid folder path".to_string());
+    let path = resolve_safe_path(&folder_path)?;
+    if !path.is_dir() {
+        return Err("Path is not a valid directory".to_string());
     }
 
-    let mut max_depth = 0;
-    let mut level_folders = std::collections::HashMap::new();
-    let mut level_images = std::collections::HashMap::new();
-
-    // Initialize root count
+    let mut max_depth = 0usize;
+    let mut level_folders: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    let mut level_images: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
     level_images.insert(0, 0);
 
-    traverse_folder(path, 0, &mut max_depth, &mut level_folders, &mut level_images);
+    let walker = WalkDir::new(&path)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            // Prune hidden directories entirely (consistent with original behaviour)
+            e.depth() == 0 || !e.file_name().to_str().is_some_and(|n| n.starts_with('.'))
+        });
+
+    for entry in walker.filter_map(|e| e.ok()) {
+        let depth = entry.depth();
+        if depth == 0 {
+            continue; // root dir itself — not counted
+        }
+        if entry.file_type().is_dir() {
+            *level_folders.entry(depth).or_insert(0) += 1;
+            if depth > max_depth {
+                max_depth = depth;
+            }
+        } else if entry.file_type().is_file() && is_supported_image(entry.path()) {
+            // A file at walkdir depth D lives inside the folder at depth D-1
+            *level_images.entry(depth - 1).or_insert(0) += 1;
+        }
+    }
 
     let mut total_folders = 0;
     let mut total_images = 0;
@@ -438,43 +444,33 @@ pub fn get_folder_depth_analysis(folder_path: String) -> Result<FolderDepthRepor
     })
 }
 
-fn collect_images_recursive(
-    current_path: &Path,
-    current_depth: usize,
-    target_depth: usize,
-    images: &mut Vec<ImageFileInfo>,
-) {
-    if let Ok(entries) = fs::read_dir(current_path) {
-        for entry in entries.flatten() {
-            let entry_path = entry.path();
-            if entry_path.is_file() && is_supported_image(&entry_path) {
-                if let Some(name) = entry.file_name().to_str() {
-                    images.push(ImageFileInfo {
-                        path: entry_path.to_string_lossy().to_string(),
-                        name: name.to_string(),
-                    });
-                }
-            } else if entry_path.is_dir() && current_depth < target_depth {
-                if let Some(name) = entry.file_name().to_str() {
-                    if !name.starts_with('.') {
-                        collect_images_recursive(&entry_path, current_depth + 1, target_depth, images);
-                    }
-                }
-            }
-        }
-    }
-}
-
 // Tauri Command: Gathers all supported image file paths from the active folder matching the specified depth restriction
 #[tauri::command]
 pub fn get_recursive_images(folder_path: String, target_depth: usize) -> Result<Vec<ImageFileInfo>, String> {
-    let path = Path::new(&folder_path);
-    if !path.exists() || !path.is_dir() {
-        return Err("Invalid folder path".to_string());
+    let path = resolve_safe_path(&folder_path)?;
+    if !path.is_dir() {
+        return Err("Path is not a valid directory".to_string());
     }
 
-    let mut images = Vec::new();
-    collect_images_recursive(path, 0, target_depth, &mut images);
+    // target_depth 0 = root only; walkdir depth 0 = the root dir itself,
+    // so files live at walkdir depth 1+. max_depth = target_depth + 1.
+    let mut images: Vec<ImageFileInfo> = WalkDir::new(&path)
+        .max_depth(target_depth + 1)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            e.depth() == 0 || !e.file_name().to_str().is_some_and(|n| n.starts_with('.'))
+        })
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file() && is_supported_image(e.path()))
+        .filter_map(|e| {
+            e.file_name().to_str().map(|name| ImageFileInfo {
+                path: e.path().to_string_lossy().to_string(),
+                name: name.to_string(),
+            })
+        })
+        .collect();
+
     images.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(images)
 }

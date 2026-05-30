@@ -6,6 +6,10 @@ on:
       - 'v*'
   workflow_dispatch:
 
+env:
+  # SHA-256 of the trusted convnext.onnx — must match EXPECTED_ONNX_SHA256 in download_model.py
+  MODEL_SHA256: "5d36f3ed20cb2a01392149036a2922f0cb7982f2d3e857fef1af66befb678f17"
+
 jobs:
   publish-tauri:
     permissions:
@@ -72,7 +76,15 @@ jobs:
       - name: Install download script dependencies
         run: pip install huggingface-hub
 
+      - name: Cache ONNX model
+        uses: actions/cache@v4
+        id: model-cache
+        with:
+          path: src-tauri/resources/convnext.onnx
+          key: convnext-onnx-${{ env.MODEL_SHA256 }}
+
       - name: Download Model Weights for Bundling
+        if: steps.model-cache.outputs.cache-hit != 'true'
         run: python download_model.py
 
       # Install frontend dependencies and build
@@ -81,7 +93,7 @@ jobs:
 
       # Build and create Github Release
       - name: Build & Publish Release
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

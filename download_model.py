@@ -1,7 +1,32 @@
+import hashlib
 import os
 import json
 import shutil
 from huggingface_hub import hf_hub_download
+
+# SHA-256 of the trusted convnext.onnx from Xenova/convnext-base-224-22k.
+# Update this constant whenever the model is intentionally upgraded.
+EXPECTED_ONNX_SHA256 = (
+    "5d36f3ed20cb2a01392149036a2922f0cb7982f2d3e857fef1af66befb678f17"
+)
+
+
+def verify_sha256(file_path: str, expected: str) -> None:
+    """Raise RuntimeError and remove the file if its SHA-256 does not match."""
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    actual = sha256.hexdigest()
+    if actual != expected:
+        os.remove(file_path)
+        raise RuntimeError(
+            f"Model integrity check FAILED.\n"
+            f"  Expected: {expected}\n"
+            f"  Got:      {actual}\n"
+            f"The file has been removed. Do not bundle or use this model."
+        )
+    print(f"Integrity check passed: SHA-256 matches.")
 
 
 def download_model():
@@ -10,6 +35,7 @@ def download_model():
 
     # 1. Download model.onnx (FP32 model from Xenova)
     print("Downloading pre-converted ConvNeXt ONNX model (FP32)...")
+    target_path = os.path.join(output_dir, "convnext.onnx")
     try:
         downloaded_path = hf_hub_download(
             repo_id="Xenova/convnext-base-224-22k",
@@ -18,7 +44,6 @@ def download_model():
             local_dir_use_symlinks=False,
         )
         # huggingface_hub download structures inside onnx/model.onnx
-        target_path = os.path.join(output_dir, "convnext.onnx")
         downloaded_onnx_dir = os.path.join(output_dir, "onnx")
         downloaded_onnx_file = os.path.join(downloaded_onnx_dir, "model.onnx")
 
@@ -31,6 +56,10 @@ def download_model():
     except Exception as e:
         print(f"Failed to download/move model: {e}")
         return
+
+    # Integrity check is outside the download try/except so it always fails loudly
+    print("Verifying model integrity...")
+    verify_sha256(target_path, EXPECTED_ONNX_SHA256)
 
     # 2. Download config.json and extract labels
     print("Downloading config.json to extract class labels...")
