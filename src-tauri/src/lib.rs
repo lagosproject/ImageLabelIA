@@ -4,6 +4,7 @@ use tagger::{
     TaggerState,
     get_subfolders,
     get_images_in_folder,
+    get_thumbnail,
     get_image_data,
     write_image_tags,
     select_folder,
@@ -21,6 +22,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_subfolders,
             get_images_in_folder,
+            get_thumbnail,
             get_image_data,
             write_image_tags,
             select_folder,

@@ -1942,3 +1942,24 @@
 .chevron-icon.collapsed {
   transform: rotate(-90deg);
 }
+
+/* Lazy thumbnail skeleton — shown while the 256x256 JPEG is being generated */
+.card-img.thumb-loading {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: thumb-shimmer 1.4s ease-in-out infinite;
+}
+
+.card-img.thumb-error {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+@keyframes thumb-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

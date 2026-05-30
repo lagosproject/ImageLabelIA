@@ -68,7 +68,7 @@
       (click)="imageSelected.emit(img)"
     >
       <div class="card-media">
-        <img [src]="getImageUrl(img.path)" alt="Thumbnail" class="card-img" loading="lazy" />
+        <img [appLazyThumb]="img.path" alt="Thumbnail" class="card-img thumb-loading" />
       </div>
       <div class="card-info">
         <span class="img-name" [title]="img.name">{{ img.name }}</span>

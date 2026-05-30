@@ -194,6 +194,14 @@ pub fn get_subfolders(folder_path: String) -> Result<Vec<String>, String> {
     Ok(subfolders)
 }
 
+// Tauri Command: Generate a small 256×256 JPEG thumbnail for gallery display
+#[tauri::command]
+pub fn get_thumbnail(image_path: String) -> Result<String, String> {
+    let path = resolve_safe_path(&image_path)?;
+    let img = image::open(&path).map_err(|e| format!("Cannot open image: {}", e))?;
+    Ok(get_thumbnail_base64(&img))
+}
+
 // Tauri Command: Get image files inside a folder (for the gallery)
 #[tauri::command]
 pub fn get_images_in_folder(folder_path: String) -> Result<Vec<ImageFileInfo>, String> {

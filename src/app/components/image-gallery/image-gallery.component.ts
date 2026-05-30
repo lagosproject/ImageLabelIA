@@ -9,11 +9,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import type { ImageFileInfo } from '../../models';
 import { TaggerService } from '../../services/tagger.service';
+import { LazyThumbDirective } from './lazy-thumb.directive';
 
 @Component({
   selector: 'app-image-gallery',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LazyThumbDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './image-gallery.component.html',
 })
@@ -41,9 +42,5 @@ export class ImageGalleryComponent {
 
   trackByImagePath(_index: number, img: ImageFileInfo): string {
     return img.path;
-  }
-
-  getImageUrl(path: string): string {
-    return this.tagger.toAssetUrl(path);
   }
 }
