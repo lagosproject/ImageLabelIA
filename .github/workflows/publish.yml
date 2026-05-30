@@ -87,9 +87,6 @@ jobs:
         if: startsWith(matrix.platform, 'macos')
         run: brew install gexiv2 pkg-config
 
-      - name: Configure macOS PKG_CONFIG_PATH
-        if: startsWith(matrix.platform, 'macos')
-        run: echo "PKG_CONFIG_PATH=$(brew --prefix gexiv2)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig" >> $GITHUB_ENV
 
       # ── Windows ──────────────────────────────────────────────────────────────
       # Uses MSYS2/MINGW64 to get a pkg-config-compatible gexiv2 build.
@@ -104,7 +101,9 @@ jobs:
       - name: Install MSYS2 packages (Windows)
         if: matrix.platform == 'windows-latest'
         shell: msys2 {0}
-        run: pacman -S --noconfirm mingw-w64-x86_64-gexiv2 mingw-w64-x86_64-pkg-config
+        run: |
+          pacman -Sy --noconfirm
+          pacman -S --noconfirm mingw-w64-x86_64-gexiv2 mingw-w64-x86_64-pkg-config
 
       - name: Configure Windows build environment
         if: matrix.platform == 'windows-latest'
@@ -121,6 +120,15 @@ jobs:
 
       - name: Install download script dependencies
         run: pip install huggingface-hub
+
+      # Must run after setup-python, which overwrites PKG_CONFIG_PATH with its own hostedtoolcache path
+      - name: Configure macOS PKG_CONFIG_PATH
+        if: startsWith(matrix.platform, 'macos')
+        run: |
+          BREW_PKG=$(brew --prefix gexiv2)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig
+          echo "PKG_CONFIG_PATH=${BREW_PKG}:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH_aarch64_apple_darwin=${BREW_PKG}" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH_x86_64_apple_darwin=${BREW_PKG}" >> $GITHUB_ENV
 
       - name: Cache ONNX model
         uses: actions/cache@v4
