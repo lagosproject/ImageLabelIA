@@ -43,4 +43,14 @@ export class ImageGalleryComponent {
   trackByImagePath(_index: number, img: ImageFileInfo): string {
     return img.path;
   }
+
+  getBaseName(name: string): string {
+    const dot = name.lastIndexOf('.');
+    return dot > 0 ? name.slice(0, dot) : name;
+  }
+
+  getExt(name: string): string {
+    const dot = name.lastIndexOf('.');
+    return dot > 0 ? name.slice(dot + 1).toUpperCase() : '';
+  }
 }

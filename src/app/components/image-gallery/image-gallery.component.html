@@ -69,9 +69,10 @@
     >
       <div class="card-media">
         <img [appLazyThumb]="img.path" alt="Thumbnail" class="card-img thumb-loading" />
+        <span class="ext-badge" *ngIf="getExt(img.name)">{{ getExt(img.name) }}</span>
       </div>
       <div class="card-info">
-        <span class="img-name" [title]="img.name">{{ img.name }}</span>
+        <span class="img-name" [title]="img.name">{{ getBaseName(img.name) }}</span>
       </div>
     </div>
 
