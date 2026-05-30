@@ -31,20 +31,25 @@ Photographers often spend hours manually keywording, organizing, and tagging pho
 
 ### Application Screenshots
 
-| Main Dashboard | Image Processing | Meta Tags Applied |
-|:---:|:---:|:---:|
-| ![Home](images/captura-home1.png) | ![Processing](images/captura-proceso.png) | ![Applied](images/captura-aplicacion.png) |
+| Main Dashboard | Image Details & AI Tags |
+|:---:|:---:|
+| ![Home](images/captura-home1.png) | ![Applied](images/captura-aplicacion.png) |
+
+| Batch Processing | Run Completion Report |
+|:---:|:---:|
+| ![Processing](images/captura-proceso.png) | ![Report](images/captura-reporte.png) |
 
 ---
 
 ## ✨ Key Features
 
-- **🚀 Hybrid Desktop Architecture**: Powered by Tauri v2 and Angular for a lightweight, secure, and beautiful user interface.
-- **🤖 Offline Local AI Inference**: Uses ONNX Runtime (`ort` in Rust) to run `ConvNeXt` for image classification and `DETR` for object detection.
-- **🔄 Multi-threaded Processing**: Processes folders of high-resolution images asynchronously without UI freezing.
-- **🏷 Metadata Synchronization**: Automatically writes predicted labels directly back to image IPTC metadata.
-- **⚙️ Configurable AI Confidence**: Adjust thresholds to either automatically trust AI suggestions or confirm them manually.
-- **🌙 Modern UI & Dark Mode**: An intuitive, photographer-focused workspace design with interactive canvas thumbnails.
+- **🚀 Hybrid Desktop Architecture**: Powered by Tauri v2 and Angular 20 for a lightweight, secure, and beautiful user interface.
+- **🤖 Offline Local AI Inference**: Runs `ConvNeXt` for image classification and `DETR` for object detection offline via ONNX Runtime (`ort` in Rust).
+- **⚡ Advanced Gallery UX**: Smooth progressive thumbnail rendering with lazy loading and a thread-concurrency decoder cache to prevent interface lag.
+- **📁 Workspace Persistence**: Remembers your last-viewed directory and restores the navigation path seamlessly on relaunch.
+- **🗂️ Collapsible Panels**: Toggleable left and right sidebars (Folder Tree and Metadata details) to maximize photo viewing estate.
+- **🏷 Metadata Synchronization**: Automatically writes confirmed AI keyword labels back to image standard IPTC headers.
+- **⚙️ Configurable AI Confidence**: Adjust confidence thresholds in the batch config modal to fine-tune auto-tag matching.
 
 ---
 
