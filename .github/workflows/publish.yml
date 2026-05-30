@@ -100,12 +100,19 @@ jobs:
       - name: Configure macOS PKG_CONFIG_PATH
         if: startsWith(matrix.platform, 'macos')
         run: |
-          GEXIV2_PC=$(find "$(brew --prefix)" -name "gexiv2.pc" 2>/dev/null | head -1)
-          if [ -z "$GEXIV2_PC" ]; then
-            echo "ERROR: gexiv2.pc not found after brew install" && exit 1
+          BREW_PREFIX=$(brew --prefix)
+          BREW_STD="${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig"
+          # Ask pkg-config first (already works if the .pc is in a standard brew dir)
+          GEXIV2_PC_DIR=$(PKG_CONFIG_PATH="${BREW_STD}" pkg-config --variable=pcfiledir gexiv2 2>/dev/null)
+          if [ -z "$GEXIV2_PC_DIR" ]; then
+            # Fallback: search the whole brew prefix; match any versioned filename (e.g. gexiv2-0.14.pc)
+            GEXIV2_PC=$(find "${BREW_PREFIX}" -name "gexiv2*.pc" 2>/dev/null | head -1)
+            if [ -z "$GEXIV2_PC" ]; then
+              echo "ERROR: gexiv2.pc not found after brew install" && exit 1
+            fi
+            GEXIV2_PC_DIR=$(dirname "$GEXIV2_PC")
           fi
-          GEXIV2_PC_DIR=$(dirname "$GEXIV2_PC")
-          BREW_PKGCONFIG="${GEXIV2_PC_DIR}:$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig"
+          BREW_PKGCONFIG="${GEXIV2_PC_DIR}:${BREW_STD}"
           echo "PKG_CONFIG_PATH=${BREW_PKGCONFIG}:${PKG_CONFIG_PATH:-}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH_aarch64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH_x86_64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
