@@ -129,3 +129,5 @@ requirements-dev.txt
 .classpath
 .settings/
 .factorypath
+.act-secrets
+.pnpm-store/

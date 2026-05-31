@@ -1,0 +1,11 @@
+# act local runner config
+# Maps GitHub-hosted runner labels to Docker images.
+# catthehacker/ubuntu:act-22.04  ~500 MB — has sudo, apt, curl, git, Node, Python
+-P ubuntu-latest=catthehacker/ubuntu:act-22.04
+-P ubuntu-24.04=catthehacker/ubuntu:act-24.04
+
+# Bind-mount the Docker socket so Docker-in-Docker steps can run if needed
+--privileged=true
+
+# Use a local .secrets file for any secrets (GITHUB_TOKEN etc.)
+--secret-file .act-secrets

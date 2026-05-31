@@ -9,6 +9,8 @@ on:
 env:
   # SHA-256 of the trusted convnext.onnx — must match EXPECTED_ONNX_SHA256 in download_model.py
   MODEL_SHA256: "5d36f3ed20cb2a01392149036a2922f0cb7982f2d3e857fef1af66befb678f17"
+  # Opt into Node.js 24 now — forced on June 16 2026, removal Sep 16 2026
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   publish-tauri:
@@ -36,7 +38,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 9
 
@@ -102,20 +104,14 @@ jobs:
         run: |
           BREW_PREFIX=$(brew --prefix)
           BREW_STD="${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig"
-          # Primary: use the keg path — works even when gexiv2 is keg-only / not linked
-          GEXIV2_KEG=$(brew --prefix gexiv2 2>/dev/null)
-          if [ -n "$GEXIV2_KEG" ] && [ -d "${GEXIV2_KEG}/lib/pkgconfig" ]; then
-            GEXIV2_PC_DIR="${GEXIV2_KEG}/lib/pkgconfig"
-          else
-            # Fallback: search brew prefix for any gexiv2*.pc
-            GEXIV2_PC=$(find "${BREW_PREFIX}" -name "gexiv2*.pc" 2>/dev/null | head -1)
-            if [ -z "$GEXIV2_PC" ]; then
-              echo "ERROR: gexiv2.pc not found — brew --prefix gexiv2: ${GEXIV2_KEG:-empty}" && exit 1
-            fi
-            GEXIV2_PC_DIR=$(dirname "$GEXIV2_PC")
+          # Locate the actual gexiv2.pc file — don't assume lib/pkgconfig exists or is populated
+          GEXIV2_PC=$(find "${BREW_PREFIX}" -name "gexiv2.pc" 2>/dev/null | head -1)
+          if [ -z "$GEXIV2_PC" ]; then
+            echo "ERROR: gexiv2.pc not found anywhere under ${BREW_PREFIX}" && exit 1
           fi
+          GEXIV2_PC_DIR=$(dirname "$GEXIV2_PC")
           BREW_PKGCONFIG="${GEXIV2_PC_DIR}:${BREW_STD}"
-          echo "Found gexiv2 pkgconfig at: ${GEXIV2_PC_DIR}"
+          echo "Found gexiv2.pc at: ${GEXIV2_PC}"
           echo "PKG_CONFIG_PATH=${BREW_PKGCONFIG}:${PKG_CONFIG_PATH:-}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH_aarch64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH_x86_64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
