@@ -105,10 +105,10 @@ jobs:
           BREW_PREFIX=$(brew --prefix)
           LIBFFI_PREFIX=$(brew --prefix libffi)
           BREW_STD="${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:${LIBFFI_PREFIX}/lib/pkgconfig"
-          # Locate the actual gexiv2.pc file — don't assume lib/pkgconfig exists or is populated
-          GEXIV2_PC=$(find "${BREW_PREFIX}" -name "gexiv2.pc" 2>/dev/null | head -1)
+          # Locate the actual gexiv2*.pc file — don't assume lib/pkgconfig exists or is populated
+          GEXIV2_PC=$(find "${BREW_PREFIX}" -name "gexiv2*.pc" 2>/dev/null | head -1)
           if [ -z "$GEXIV2_PC" ]; then
-            echo "ERROR: gexiv2.pc not found anywhere under ${BREW_PREFIX}" && exit 1
+            echo "ERROR: gexiv2*.pc not found anywhere under ${BREW_PREFIX}" && exit 1
           fi
           GEXIV2_PC_DIR=$(dirname "$GEXIV2_PC")
           BREW_PKGCONFIG="${GEXIV2_PC_DIR}:${BREW_STD}"
