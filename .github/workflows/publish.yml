@@ -98,22 +98,26 @@ jobs:
         run: pip install huggingface-hub
 
       # Run after setup-python: it overwrites PKG_CONFIG_PATH, so we re-set it here.
-      # Use `find` to locate gexiv2.pc regardless of where brew puts it.
+      # Homebrew may install only a versioned gexiv2-0.14.pc (not gexiv2.pc), so we
+      # create a canonical symlink so `pkg-config gexiv2` resolves correctly.
       - name: Configure macOS PKG_CONFIG_PATH
         if: startsWith(matrix.platform, 'macos')
         run: |
           BREW_PREFIX=$(brew --prefix)
           LIBFFI_PREFIX=$(brew --prefix libffi)
-          BREW_STD="${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:${LIBFFI_PREFIX}/lib/pkgconfig"
-          # Locate the actual gexiv2*.pc file — don't assume lib/pkgconfig exists or is populated
-          GEXIV2_PC=$(find "${BREW_PREFIX}" -name "gexiv2*.pc" 2>/dev/null | head -1)
-          if [ -z "$GEXIV2_PC" ]; then
-            echo "ERROR: gexiv2*.pc not found anywhere under ${BREW_PREFIX}" && exit 1
+          GEXIV2_PREFIX=$(brew --prefix gexiv2)
+          GEXIV2_PC_DIR="${GEXIV2_PREFIX}/lib/pkgconfig"
+          # If only a versioned .pc file exists (e.g. gexiv2-0.14.pc), symlink gexiv2.pc to it
+          if [ ! -f "${GEXIV2_PC_DIR}/gexiv2.pc" ]; then
+            VERSIONED=$(find "${GEXIV2_PC_DIR}" -name "gexiv2*.pc" 2>/dev/null | head -1)
+            if [ -z "$VERSIONED" ]; then
+              echo "ERROR: no gexiv2*.pc found under ${GEXIV2_PC_DIR}" && exit 1
+            fi
+            echo "Symlinking $(basename "$VERSIONED") -> gexiv2.pc"
+            ln -sf "$(basename "$VERSIONED")" "${GEXIV2_PC_DIR}/gexiv2.pc"
           fi
-          GEXIV2_PC_DIR=$(dirname "$GEXIV2_PC")
-          BREW_PKGCONFIG="${GEXIV2_PC_DIR}:${BREW_STD}"
-          echo "Found gexiv2.pc at: ${GEXIV2_PC}"
-          echo "PKG_CONFIG_PATH=${BREW_PKGCONFIG}:${PKG_CONFIG_PATH:-}" >> $GITHUB_ENV
+          BREW_PKGCONFIG="${GEXIV2_PC_DIR}:${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:${LIBFFI_PREFIX}/lib/pkgconfig"
+          echo "PKG_CONFIG_PATH=${BREW_PKGCONFIG}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH_aarch64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH_x86_64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
 
