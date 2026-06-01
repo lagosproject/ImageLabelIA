@@ -86,7 +86,7 @@ jobs:
       # ── macOS ────────────────────────────────────────────────────────────────
       - name: Install Dependencies (macOS)
         if: startsWith(matrix.platform, 'macos')
-        run: brew install gexiv2 pkg-config
+        run: brew install gexiv2 pkg-config libffi
 
       # ── Shared ───────────────────────────────────────────────────────────────
       - name: Set up Python
@@ -103,7 +103,8 @@ jobs:
         if: startsWith(matrix.platform, 'macos')
         run: |
           BREW_PREFIX=$(brew --prefix)
-          BREW_STD="${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig"
+          LIBFFI_PREFIX=$(brew --prefix libffi)
+          BREW_STD="${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:${LIBFFI_PREFIX}/lib/pkgconfig"
           # Locate the actual gexiv2.pc file — don't assume lib/pkgconfig exists or is populated
           GEXIV2_PC=$(find "${BREW_PREFIX}" -name "gexiv2.pc" 2>/dev/null | head -1)
           if [ -z "$GEXIV2_PC" ]; then
