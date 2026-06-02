@@ -142,7 +142,23 @@ jobs:
           echo "PKG_CONFIG_PATH_aarch64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH_x86_64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
 
+      - name: Diagnostic macOS gexiv2 info
+        if: startsWith(matrix.platform, 'macos')
+        run: |
+          GEXIV2_PREFIX=$(brew --prefix gexiv2)
+          echo "=== GEXIV2 PREFIX ==="
+          echo "${GEXIV2_PREFIX}"
+          echo "=== Listing prefix contents ==="
+          find -L "${GEXIV2_PREFIX}" -maxdepth 3
+          echo "=== File details of dylibs ==="
+          file ${GEXIV2_PREFIX}/lib/*.dylib
+          echo "=== Symbols in dylibs ==="
+          nm -gU ${GEXIV2_PREFIX}/lib/*.dylib || true
+          echo "=== pkgconfig contents ==="
+          cat ${GEXIV2_PREFIX}/lib/pkgconfig/*.pc || true
+
       - name: Cache ONNX model
+        if: false
         uses: actions/cache@v4
         id: model-cache
         with:
@@ -152,13 +168,15 @@ jobs:
           key: convnext-onnx-${{ env.MODEL_SHA256 }}
 
       - name: Download Model Weights for Bundling
-        if: steps.model-cache.outputs.cache-hit != 'true'
+        if: false
         run: python download_model.py
 
       - name: Install Frontend Dependencies
+        if: false
         run: pnpm install --frozen-lockfile
 
       - name: Build & Publish Release
+        if: false
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -169,3 +187,4 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
