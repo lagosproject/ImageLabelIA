@@ -98,25 +98,46 @@ jobs:
         run: pip install huggingface-hub
 
       # Run after setup-python: it overwrites PKG_CONFIG_PATH, so we re-set it here.
-      # Homebrew may install only a versioned gexiv2-0.14.pc (not gexiv2.pc), so we
-      # create a canonical symlink so `pkg-config gexiv2` resolves correctly.
+      # Homebrew's versioned .pc file (gexiv2-0.16.pc) emits -lgexiv2-0.16, which is
+      # the Linux soname. On macOS the dylib is libgexiv2.dylib, so we write a fresh
+      # gexiv2.pc that uses the actual dylib name found on disk.
       - name: Configure macOS PKG_CONFIG_PATH
         if: startsWith(matrix.platform, 'macos')
         run: |
           BREW_PREFIX=$(brew --prefix)
           LIBFFI_PREFIX=$(brew --prefix libffi)
           GEXIV2_PREFIX=$(brew --prefix gexiv2)
-          GEXIV2_PC_DIR="${GEXIV2_PREFIX}/lib/pkgconfig"
-          # If only a versioned .pc file exists (e.g. gexiv2-0.14.pc), symlink gexiv2.pc to it
-          if [ ! -f "${GEXIV2_PC_DIR}/gexiv2.pc" ]; then
-            VERSIONED=$(find "${GEXIV2_PC_DIR}" -name "gexiv2*.pc" 2>/dev/null | head -1)
-            if [ -z "$VERSIONED" ]; then
-              echo "ERROR: no gexiv2*.pc found under ${GEXIV2_PC_DIR}" && exit 1
-            fi
-            echo "Symlinking $(basename "$VERSIONED") -> gexiv2.pc"
-            ln -sf "$(basename "$VERSIONED")" "${GEXIV2_PC_DIR}/gexiv2.pc"
+          GEXIV2_LIB_DIR="${GEXIV2_PREFIX}/lib"
+          # Determine the correct -l flag from the dylib actually present on disk.
+          # Prefer the unversioned symlink (libgexiv2.dylib -> -lgexiv2).
+          DYLIB=$(find "${GEXIV2_LIB_DIR}" -maxdepth 1 -name "libgexiv2.dylib" 2>/dev/null | head -1)
+          if [ -z "$DYLIB" ]; then
+            DYLIB=$(find "${GEXIV2_LIB_DIR}" -maxdepth 1 -name "libgexiv2*.dylib" 2>/dev/null | head -1)
           fi
-          BREW_PKGCONFIG="${GEXIV2_PC_DIR}:${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:${LIBFFI_PREFIX}/lib/pkgconfig"
+          [ -z "$DYLIB" ] && echo "ERROR: no libgexiv2*.dylib under ${GEXIV2_LIB_DIR}" && exit 1
+          LIBNAME=$(basename "${DYLIB}" .dylib | sed 's/^lib//')
+          echo "Using gexiv2 dylib: ${DYLIB} (-l${LIBNAME})"
+          # Read the version and Requires from the versioned .pc Homebrew installed
+          VERSIONED_PC=$(find "${GEXIV2_PREFIX}" -name "gexiv2*.pc" 2>/dev/null | head -1)
+          GEXIV2_VERSION=$(grep "^Version:" "${VERSIONED_PC}" | awk '{print $2}')
+          GEXIV2_REQUIRES=$(grep "^Requires" "${VERSIONED_PC}" | head -1)
+          # Write a canonical gexiv2.pc with the macOS-correct library name
+          mkdir -p /tmp/pkgconfig-gexiv2
+          cat > /tmp/pkgconfig-gexiv2/gexiv2.pc << EOF
+          prefix=${GEXIV2_PREFIX}
+          exec_prefix=${GEXIV2_PREFIX}
+          libdir=${GEXIV2_LIB_DIR}
+          includedir=${GEXIV2_PREFIX}/include
+          Name: gexiv2
+          Description: GObject-based wrapper around the exiv2 library
+          Version: ${GEXIV2_VERSION}
+          ${GEXIV2_REQUIRES}
+          Libs: -L${GEXIV2_LIB_DIR} -l${LIBNAME}
+          Cflags: -I${GEXIV2_PREFIX}/include/gexiv2
+          EOF
+          echo "--- gexiv2.pc ---"
+          cat /tmp/pkgconfig-gexiv2/gexiv2.pc
+          BREW_PKGCONFIG="/tmp/pkgconfig-gexiv2:${GEXIV2_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:${LIBFFI_PREFIX}/lib/pkgconfig"
           echo "PKG_CONFIG_PATH=${BREW_PKGCONFIG}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH_aarch64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH_x86_64_apple_darwin=${BREW_PKGCONFIG}" >> $GITHUB_ENV
