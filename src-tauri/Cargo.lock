@@ -4339,6 +4339,7 @@ dependencies = [
  "image",
  "log",
  "ort",
+ "pkg-config",
  "rexiv2",
  "rfd",
  "serde",
