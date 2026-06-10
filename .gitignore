@@ -131,3 +131,6 @@ requirements-dev.txt
 .factorypath
 .act-secrets
 .pnpm-store/
+
+# Claude Code local agent memory/config
+.claude/
