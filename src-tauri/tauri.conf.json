@@ -30,7 +30,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["deb", "appimage", "app", "dmg", "nsis", "msi"],
     "linux": {
       "appimage": {
         "bundleMediaFramework": true

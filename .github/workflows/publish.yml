@@ -52,16 +52,10 @@ jobs:
           targets: ${{ matrix.rust_targets }}
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-${{ matrix.rust_targets }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.rust_targets }}-cargo-
-            ${{ runner.os }}-cargo-
+          workspaces: src-tauri
+          key: ${{ matrix.rust_targets }}
 
       # ── Linux ────────────────────────────────────────────────────────────────
       - name: Install Dependencies (Linux)
