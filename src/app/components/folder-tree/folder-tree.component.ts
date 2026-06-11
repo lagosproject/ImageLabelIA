@@ -36,7 +36,8 @@ export class FolderTreeComponent {
   @Output() readonly collapse = new EventEmitter<void>();
 
   getFolderName(fullPath: string): string {
-    const parts = fullPath.split('/');
+    const normalized = fullPath.replace(/\\/g, '/');
+    const parts = normalized.split('/');
     return parts[parts.length - 1] || fullPath;
   }
 }

@@ -93,7 +93,9 @@ export class TaggerService {
   toAssetUrl(path: string): string {
     if (!path) return '';
     try {
-      return convertFileSrc(path);
+      const isWindows = path.includes(':') || !path.startsWith('/');
+      const nativePath = isWindows ? path.replace(/\//g, '\\') : path;
+      return convertFileSrc(nativePath);
     } catch {
       return '';
     }
