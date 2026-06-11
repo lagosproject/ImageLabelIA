@@ -50,13 +50,16 @@
   <div class="main-layout">
 
     <!-- Left Navigation Panel: Folder Tree -->
-    <aside class="sidebar" [class.collapsed]="leftSidebarCollapsed">
+    <aside class="sidebar" [class.collapsed]="leftSidebarCollapsed" [style.width.px]="leftSidebarCollapsed ? 0 : leftSidebarWidth">
       <app-folder-tree
         [subfolders]="subfolders"
         (folderSelected)="navigateToFolder($event)"
         (collapse)="toggleLeftSidebar()"
       />
     </aside>
+
+    <!-- Left Resizer -->
+    <div *ngIf="!leftSidebarCollapsed" class="sidebar-resizer left-resizer" (mousedown)="onLeftMouseDown($event)"></div>
 
     <!-- Center Pane: Image Gallery -->
     <section class="gallery-container">
@@ -73,8 +76,11 @@
       />
     </section>
 
+    <!-- Right Resizer -->
+    <div *ngIf="!rightSidebarCollapsed" class="sidebar-resizer right-resizer" (mousedown)="onRightMouseDown($event)"></div>
+
     <!-- Right Pane: Tagging & Details Panel -->
-    <aside class="details-panel" [class.collapsed]="rightSidebarCollapsed">
+    <aside class="details-panel" [class.collapsed]="rightSidebarCollapsed" [style.width.px]="rightSidebarCollapsed ? 0 : rightSidebarWidth">
       <app-image-details
         [selectedImage]="selectedImage"
         (collapse)="toggleRightSidebar()"

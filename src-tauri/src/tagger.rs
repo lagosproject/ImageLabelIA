@@ -75,6 +75,17 @@ fn resolve_safe_path(path_str: &str) -> Result<PathBuf, String> {
         .map_err(|e| format!("Invalid path '{}': {}", path_str, e))
 }
 
+fn clean_unc_path(path: &Path) -> String {
+    let path_str = path.to_string_lossy().to_string();
+    if path_str.starts_with(r"\\?\UNC\") {
+        format!(r"\\{}", &path_str[8..])
+    } else if path_str.starts_with(r"\\?\") {
+        path_str[4..].to_string()
+    } else {
+        path_str
+    }
+}
+
 // Helper to lazily load the ONNX session and class labels if not loaded yet
 fn load_model_if_needed(app_handle: &AppHandle, state: &TaggerState) -> Result<(), String> {
     let mut session_guard = state.session.lock().map_err(|e| e.to_string())?;
@@ -232,7 +243,7 @@ pub fn get_subfolders(folder_path: String) -> Result<Vec<String>, String> {
                     if let Some(name) = entry.file_name().to_str() {
                         // Ignore hidden folders starting with dot
                         if !name.starts_with('.') {
-                            subfolders.push(entry.path().to_string_lossy().to_string());
+                             subfolders.push(clean_unc_path(&entry.path()));
                         }
                     }
                 }
@@ -294,7 +305,7 @@ pub fn get_images_in_folder(folder_path: String) -> Result<Vec<ImageFileInfo>, S
             if entry_path.is_file() && is_supported_image(&entry_path) {
                 if let Some(name) = entry.file_name().to_str() {
                     images.push(ImageFileInfo {
-                        path: entry_path.to_string_lossy().to_string(),
+                        path: clean_unc_path(&entry_path),
                         name: name.to_string(),
                     });
                 }
@@ -405,7 +416,7 @@ pub async fn get_image_data(
     }
 
     Ok(ImageProcessResult {
-        path: image_path,
+        path: clean_unc_path(&safe_path),
         thumbnail,
         predicted_tags,
         existing_tags,
@@ -457,7 +468,7 @@ pub async fn get_image_metadata(image_path: String) -> Result<ImageMetadata, Str
     };
 
     Ok(ImageMetadata {
-        path: image_path,
+        path: clean_unc_path(&safe_path),
         existing_tags,
         dimensions,
         file_size_bytes,
@@ -528,7 +539,7 @@ pub fn select_folder() -> Result<Option<String>, String> {
     let folder = rfd::FileDialog::new()
         .set_title("Select Folder to Scan")
         .pick_folder();
-    Ok(folder.map(|p| p.to_string_lossy().to_string()))
+    Ok(folder.map(|p| clean_unc_path(&p)))
 }
 
 fn last_folder_file(app: &AppHandle) -> Option<PathBuf> {
@@ -546,12 +557,13 @@ pub fn get_initial_folder(app: AppHandle) -> String {
         if let Ok(saved) = fs::read_to_string(&file) {
             let saved = saved.trim().to_string();
             if !saved.is_empty() && Path::new(&saved).is_dir() {
-                return saved;
+                // Ensure the saved path is clean as well
+                return clean_unc_path(Path::new(&saved));
             }
         }
     }
     dirs::home_dir()
-        .map(|p| p.to_string_lossy().to_string())
+        .map(|p| clean_unc_path(&p))
         .unwrap_or_default()
 }
 
@@ -703,7 +715,7 @@ pub fn get_recursive_images(
         .filter(|e| e.file_type().is_file() && is_supported_image(e.path()))
         .filter_map(|e| {
             e.file_name().to_str().map(|name| ImageFileInfo {
-                path: e.path().to_string_lossy().to_string(),
+                path: clean_unc_path(e.path()),
                 name: name.to_string(),
             })
         })

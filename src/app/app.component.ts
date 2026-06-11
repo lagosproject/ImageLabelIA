@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, ViewEncapsulation, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TaggerService } from './services/tagger.service';
 import { BatchService } from './services/batch.service';
@@ -39,6 +39,11 @@ export class AppComponent implements OnInit {
   showConfigModal = false;
   leftSidebarCollapsed = false;
   rightSidebarCollapsed = false;
+
+  leftSidebarWidth = 260;
+  rightSidebarWidth = 360;
+  private isResizingLeft = false;
+  private isResizingRight = false;
 
   async ngOnInit(): Promise<void> {
     try {
@@ -82,10 +87,16 @@ export class AppComponent implements OnInit {
 
   navigateToParent(): void {
     if (!this.folderPath) return;
-    const parts = this.folderPath.split('/');
-    if (parts.length > 2) {
+    const normalized = this.folderPath.replace(/\\/g, '/');
+    const parts = normalized.split('/');
+    if (parts.length > 1) {
       parts.pop();
-      this.folderPath = parts.join('/');
+      let parentPath = parts.join('/');
+      // If it ends up as a drive letter on Windows (e.g. "C:"), append a trailing slash
+      if (parentPath.match(/^[A-Za-z]:$/)) {
+        parentPath += '/';
+      }
+      this.folderPath = parentPath;
       void this.tagger.saveLastFolder(this.folderPath).catch(() => {});
       void this.scanFolder();
     }
@@ -116,13 +127,59 @@ export class AppComponent implements OnInit {
     this.rightSidebarCollapsed = !this.rightSidebarCollapsed;
   }
 
+  onLeftMouseDown(event: MouseEvent): void {
+    event.preventDefault();
+    this.isResizingLeft = true;
+  }
+
+  onRightMouseDown(event: MouseEvent): void {
+    event.preventDefault();
+    this.isResizingRight = true;
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onMouseMove(event: MouseEvent): void {
+    if (this.isResizingLeft) {
+      const newWidth = event.clientX;
+      if (newWidth >= 180 && newWidth <= 500) {
+        this.leftSidebarWidth = newWidth;
+      }
+    } else if (this.isResizingRight) {
+      const newWidth = window.innerWidth - event.clientX;
+      if (newWidth >= 250 && newWidth <= 600) {
+        this.rightSidebarWidth = newWidth;
+      }
+    }
+  }
+
+  @HostListener('document:mouseup')
+  onMouseUp(): void {
+    this.isResizingLeft = false;
+    this.isResizingRight = false;
+  }
+
   get pathSegments(): { name: string; fullPath: string }[] {
     if (!this.folderPath) return [];
-    const parts = this.folderPath.split(/[/\\]/).filter(p => p.length > 0);
+    const normalized = this.folderPath.replace(/\\/g, '/');
+    const isWindowsAbsolute = /^[A-Za-z]:/.test(normalized);
+    const parts = normalized.split('/').filter(p => p.length > 0);
     const segments: { name: string; fullPath: string }[] = [];
     let current = '';
-    for (const part of parts) {
-      current += '/' + part;
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (i === 0) {
+        if (isWindowsAbsolute) {
+          current = part + '/';
+        } else {
+          current = '/' + part;
+        }
+      } else {
+        if (current && !current.endsWith('/')) {
+          current += '/';
+        }
+        current += part;
+      }
       segments.push({ name: part, fullPath: current });
     }
     return segments;
