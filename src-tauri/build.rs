@@ -90,6 +90,14 @@ fn copy_dlls() {
         }
     } else {
         println!("cargo:warning=Could not locate MSYS2 UCRT64 bin directory containing libexiv2-28.dll");
+        // Create resources/dlls directory and write a dummy dll file
+        // so that the tauri glob pattern "resources/dlls/*.dll" doesn't fail the build.
+        let resources_dll_dir = std::path::PathBuf::from("resources/dlls");
+        let _ = std::fs::create_dir_all(&resources_dll_dir);
+        let placeholder = resources_dll_dir.join("placeholder.dll");
+        if !placeholder.exists() {
+            let _ = std::fs::write(&placeholder, b"placeholder");
+        }
     }
 }
 
