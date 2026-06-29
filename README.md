@@ -19,6 +19,8 @@
 - [Configuration](#%EF%B8%8F-configuration)
 - [Usage](#-usage)
 - [Developer Guides](#-developer-guides)
+  - [Project Structure](#project-structure)
+  - [Architecture Decisions](#architecture-decisions)
 - [Contributing](#-contributing)
 - [Security](#-security)
 - [License](#-license)
@@ -156,6 +158,8 @@ Once the application is running:
 ```text
 ├── .github/                 # GitHub CI/CD workflows, Pull Request & Issue Templates
 ├── .vscode/                 # IDE Configuration
+├── docs/                    # Design documentation and architecture records (ADRs)
+│   └── ARCHITECTURE_DECISIONS.md
 ├── scripts/                 # Model processing and download scripts
 │   ├── download_model.py    # Helper script to pull models from HF Hub
 │   ├── export_convnext.py   # Export ConvNeXt model to ONNX
@@ -171,6 +175,9 @@ Once the application is running:
 ├── package.json             # NPM package definitions
 └── README.md                # This file
 ```
+
+### Architecture Decisions
+Every key design decision, framework selection, persistence strategy, and technical trade-off made in this project is documented as an Architecture Decision Record (ADR) in the [docs/ARCHITECTURE_DECISIONS.md](file:///docs/ARCHITECTURE_DECISIONS.md) file. Refer to this document before introducing major architectural modifications.
 
 ---
 
