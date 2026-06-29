@@ -32,6 +32,18 @@
   color: #fca5a5;
 }
 
+.batch-error-banner.absolute-banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  background: rgba(239, 68, 68, 0.95);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 .batch-error-banner .banner-close-btn {
   margin-left: auto;
   background: none;
@@ -258,7 +270,7 @@
   display: flex;
   flex: 1;
   overflow: hidden;
-  height: calc(100vh - 121px);
+  height: calc(100vh - 48px);
 }
 
 /* Common Panel Header styles */
@@ -1666,6 +1678,26 @@ app-image-gallery {
   border-radius: 0;
   margin: 0;
   border-right: 1px solid var(--border-color);
+}
+
+.segmented-btn-group.mini {
+  border-radius: 8px;
+  height: 32px;
+}
+
+.segmented-btn-group.mini .scan-btn {
+  height: 100%;
+  border-radius: 0;
+  padding: 0 12px;
+  font-size: 0.8rem;
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-indigo));
+  box-shadow: none;
+  min-width: auto;
+}
+
+.segmented-btn-group.mini .config-dropdown-btn {
+  height: 100%;
+  width: 30px;
 }
 
 .config-dropdown-btn {
