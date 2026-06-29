@@ -43,9 +43,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "resources/convnext.onnx",
-      "resources/convnext_labels.json"
-    ]
+    "resources": {
+      "resources/convnext.onnx": "resources/convnext.onnx",
+      "resources/convnext_labels.json": "resources/convnext_labels.json",
+      "resources/dlls/*.dll": "./"
+    }
   }
 }

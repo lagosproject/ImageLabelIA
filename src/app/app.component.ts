@@ -31,6 +31,7 @@ export class AppComponent implements OnInit {
 
   folderPath = '';
   subfolders: string[] = [];
+  drives: string[] = [];
   images: ImageFileInfo[] = [];
   scanning = false;
   scanError = '';
@@ -47,6 +48,7 @@ export class AppComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
+      this.drives = await this.tagger.getAvailableDrives();
       const initial = await this.tagger.getInitialFolder();
       if (initial) {
         this.folderPath = initial;
@@ -156,6 +158,23 @@ export class AppComponent implements OnInit {
   onMouseUp(): void {
     this.isResizingLeft = false;
     this.isResizingRight = false;
+  }
+
+  getSelectedDrive(): string {
+    if (!this.folderPath) return '';
+    const normalized = this.folderPath.replace(/\\/g, '/');
+    const match = normalized.match(/^([A-Za-z]:\/)/);
+    if (match) {
+      return match[0].replace('/', '\\');
+    }
+    return '';
+  }
+
+  onDriveChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    if (select && select.value) {
+      this.navigateToFolder(select.value);
+    }
   }
 
   get pathSegments(): { name: string; fullPath: string }[] {

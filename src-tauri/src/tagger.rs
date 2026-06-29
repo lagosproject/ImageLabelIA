@@ -724,3 +724,21 @@ pub fn get_recursive_images(
     images.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(images)
 }
+
+// Tauri Command: Returns list of available logical drives on Windows (e.g. "C:\", "D:\").
+// On other operating systems, returns a single item containing the root directory "/".
+#[tauri::command]
+pub fn get_available_drives() -> Vec<String> {
+    let mut drives = Vec::new();
+    for c in b'A'..=b'Z' {
+        let drive_letter = c as char;
+        let drive_path = format!("{}:\\", drive_letter);
+        if std::path::Path::new(&drive_path).is_dir() {
+            drives.push(drive_path);
+        }
+    }
+    if drives.is_empty() {
+        drives.push("/".to_string());
+    }
+    drives
+}

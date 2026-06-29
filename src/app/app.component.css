@@ -287,6 +287,67 @@
   transition: opacity 0.3s ease;
 }
 
+app-folder-tree,
+app-image-details {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.breadcrumb-drive-selector {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.breadcrumb-drive-selector:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent-violet);
+  color: var(--text-primary);
+}
+
+.breadcrumb-home-icon {
+  color: var(--accent-violet);
+  flex-shrink: 0;
+}
+
+.active-drive-text {
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.breadcrumb-chevron-down {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.invisible-drive-select {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.invisible-drive-select option {
+  background: #0f172a;
+  color: var(--text-primary);
+}
+
 .sidebar-resizer {
   width: 6px;
   cursor: col-resize;

@@ -97,7 +97,19 @@
       </button>
 
       <span class="route-label">Route:</span>
-      <button class="breadcrumb-btn root" (click)="navigateToFolder('/')" title="Go to Root">
+      
+      <!-- Drive Selector (Replacing Home Button on Windows/Multi-drive systems) -->
+      <div class="breadcrumb-drive-selector" *ngIf="drives.length > 0">
+        <svg class="breadcrumb-home-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span class="active-drive-text">{{ getSelectedDrive() || '/' }}</span>
+        <svg class="breadcrumb-chevron-down" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        
+        <select [value]="getSelectedDrive()" (change)="onDriveChange($event)" class="invisible-drive-select" title="Switch Drive">
+          <option *ngFor="let drive of drives" [value]="drive">{{ drive }}</option>
+        </select>
+      </div>
+
+      <button class="breadcrumb-btn root" *ngIf="drives.length === 0" (click)="navigateToFolder('/')" title="Go to Root">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </button>
 

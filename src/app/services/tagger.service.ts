@@ -78,6 +78,10 @@ export class TaggerService {
     return invoke<string>('get_initial_folder');
   }
 
+  getAvailableDrives(): Promise<string[]> {
+    return invoke<string[]>('get_available_drives');
+  }
+
   saveLastFolder(folderPath: string): Promise<void> {
     return invoke<void>('save_last_folder', { folderPath });
   }
