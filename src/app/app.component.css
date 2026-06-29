@@ -2090,3 +2090,31 @@ app-image-gallery {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* Custom Scrollbar Styles for sidebars and gallery */
+.sidebar-content::-webkit-scrollbar,
+.details-content::-webkit-scrollbar,
+.gallery-content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.sidebar-content::-webkit-scrollbar-track,
+.details-content::-webkit-scrollbar-track,
+.gallery-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb,
+.details-content::-webkit-scrollbar-thumb,
+.gallery-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  transition: background-color 0.2s ease;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover,
+.details-content::-webkit-scrollbar-thumb:hover,
+.gallery-content::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-violet);
+}
