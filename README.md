@@ -113,7 +113,7 @@ pip install -r requirements.txt  # Or manually: pip install huggingface-hub torc
 ### 4. Fetch the ONNX Model
 Run the download script to retrieve the pre-converted ConvNeXt model and label set from HuggingFace Hub:
 ```bash
-python download_model.py
+python scripts/download_model.py
 ```
 This saves:
 - `src-tauri/resources/convnext.onnx`
@@ -156,6 +156,11 @@ Once the application is running:
 ```text
 ├── .github/                 # GitHub CI/CD workflows, Pull Request & Issue Templates
 ├── .vscode/                 # IDE Configuration
+├── scripts/                 # Model processing and download scripts
+│   ├── download_model.py    # Helper script to pull models from HF Hub
+│   ├── export_convnext.py   # Export ConvNeXt model to ONNX
+│   ├── export_labels.py     # Export label files for models
+│   └── export_onnx.py       # Export ViT & DETR models to ONNX
 ├── src/                     # Angular Single Page App (Frontend)
 │   ├── app/                 # Components and routing
 │   └── assets/              # App static files
@@ -163,7 +168,6 @@ Once the application is running:
 │   ├── resources/           # Pre-compiled ONNX models and category tags
 │   ├── src/                 # Main Tauri entry point, file system, and inference logic
 │   └── Cargo.toml           # Rust Cargo dependencies
-├── download_model.py        # Helper script to pull models from HF Hub
 ├── package.json             # NPM package definitions
 └── README.md                # This file
 ```

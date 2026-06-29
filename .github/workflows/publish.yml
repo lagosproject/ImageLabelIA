@@ -180,7 +180,7 @@ jobs:
 
       - name: Download Model Weights for Bundling
         if: steps.model-cache.outputs.cache-hit != 'true'
-        run: python download_model.py
+        run: python scripts/download_model.py
 
       - name: Install Frontend Dependencies
         run: pnpm install --frozen-lockfile
