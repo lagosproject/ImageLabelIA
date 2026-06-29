@@ -98,7 +98,7 @@ export class TaggerService {
     if (!path) return '';
     try {
       const isWindows = path.includes(':') || !path.startsWith('/');
-      const nativePath = isWindows ? path.replace(/\//g, '\\') : path;
+      const nativePath = isWindows ? path.replace(/\\/g, '/') : path;
       return convertFileSrc(nativePath);
     } catch {
       return '';

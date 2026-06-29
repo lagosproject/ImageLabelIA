@@ -2,9 +2,8 @@
   <!-- Top Header Navigation -->
   <header class="app-header">
     <div class="brand">
-      <img src="assets/tauri.svg" class="brand-logo" alt="ImageLabelIA Logo" />
       <div class="brand-info">
-        <h1>ImageLabelIA</h1>
+        <h1><span>ImageLabel</span><span class="primary-text">IA</span></h1>
       </div>
     </div>
 
@@ -16,14 +15,14 @@
           [style.background]="batch.getProgressGradient()"
           (click)="onBatchTagClick()"
           [disabled]="images.length === 0 && subfolders.length === 0"
-          [title]="batch.running ? 'Click to cancel auto-tagging folder' : 'Automatically run AI keyword tagging on all images in folder'"
+          [title]="batch.running ? i18n.t('btn.cancel') : i18n.t('tooltip.config')"
         >
           <span *ngIf="!batch.running">
             <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: middle;"><path d="m12 3-1.912 5.886L4.202 9l5.886 1.912L12 16.798l1.912-5.886L19.798 9l-5.886-1.912L12 3Z"/></svg>
-            <span style="vertical-align: middle;">Auto-Tag Folder</span>
+            <span style="vertical-align: middle;">{{ i18n.t('btn.auto_tag') }}</span>
           </span>
           <span *ngIf="batch.running">
-            {{ batch.progressPercent }}% · Cancel
+            {{ batch.progressPercent }}% · {{ i18n.t('btn.cancel') }}
           </span>
         </button>
 
@@ -32,7 +31,7 @@
           class="config-dropdown-btn"
           (click)="showConfigModal = true"
           [disabled]="images.length === 0 && subfolders.length === 0"
-          title="Configure batch auto-tagging options"
+          [title]="i18n.t('tooltip.config')"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
         </button>
@@ -92,11 +91,11 @@
   <!-- Bottom status bar & breadcrumbs path route navigation -->
   <footer class="app-footer">
     <div class="footer-path-route">
-      <button class="nav-btn-mini" (click)="navigateToParent()" title="Go to Parent Folder">
+      <button class="nav-btn-mini" (click)="navigateToParent()" [title]="i18n.t('tooltip.go_parent')">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
       </button>
 
-      <span class="route-label">Route:</span>
+      <span class="route-label">{{ i18n.t('label.route') }}</span>
       
       <!-- Drive Selector (Replacing Home Button on Windows/Multi-drive systems) -->
       <div class="breadcrumb-drive-selector" *ngIf="drives.length > 0">
@@ -104,12 +103,12 @@
         <span class="active-drive-text">{{ getSelectedDrive() || '/' }}</span>
         <svg class="breadcrumb-chevron-down" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         
-        <select [value]="getSelectedDrive()" (change)="onDriveChange($event)" class="invisible-drive-select" title="Switch Drive">
+        <select [value]="getSelectedDrive()" (change)="onDriveChange($event)" class="invisible-drive-select" [title]="i18n.t('sidebar.switch_drive')">
           <option *ngFor="let drive of drives" [value]="drive">{{ drive }}</option>
         </select>
       </div>
 
-      <button class="breadcrumb-btn root" *ngIf="drives.length === 0" (click)="navigateToFolder('/')" title="Go to Root">
+      <button class="breadcrumb-btn root" *ngIf="drives.length === 0" (click)="navigateToFolder('/')" [title]="i18n.t('tooltip.go_root')">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </button>
 
@@ -129,9 +128,9 @@
     </div>
 
     <div class="footer-status">
-      <button class="browse-btn mini" (click)="browseFolder()" title="Browse folder natively">
+      <button class="browse-btn mini" (click)="browseFolder()" [title]="i18n.t('tooltip.browse')">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-        <span>Browse Folder</span>
+        <span>{{ i18n.t('btn.browse') }}</span>
       </button>
     </div>
   </footer>

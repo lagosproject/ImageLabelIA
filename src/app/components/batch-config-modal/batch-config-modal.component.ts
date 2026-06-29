@@ -1,7 +1,8 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaggerService } from '../../services/tagger.service';
+import { I18nService } from '../../services/i18n.service';
 import type { BatchMode, FolderDepthReport } from '../../models';
 
 export interface BatchRunConfig {
@@ -17,6 +18,7 @@ export interface BatchRunConfig {
   templateUrl: './batch-config-modal.component.html',
 })
 export class BatchConfigModalComponent {
+  readonly i18n = inject(I18nService);
   @Input() visible = false;
   @Input() folderPath = '';
   @Output() readonly run = new EventEmitter<BatchRunConfig>();

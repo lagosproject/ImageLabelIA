@@ -5,6 +5,7 @@ import {
   OnDestroy,
   OnInit,
   Output,
+  inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,6 +13,7 @@ import { Subscription } from 'rxjs';
 import { TaggerService } from '../../services/tagger.service';
 import { BatchService } from '../../services/batch.service';
 import type { ImageFileInfo, ImageMetadata } from '../../models';
+import { I18nService } from '../../services/i18n.service';
 
 @Component({
   selector: 'app-image-details',
@@ -21,6 +23,7 @@ import type { ImageFileInfo, ImageMetadata } from '../../models';
   styles: [':host { display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }'],
 })
 export class ImageDetailsComponent implements OnInit, OnDestroy {
+  readonly i18n = inject(I18nService);
   private _selectedImage: ImageFileInfo | null = null;
 
   @Input()

@@ -90,10 +90,12 @@
   font-family: var(--font-display);
   font-size: 1.35rem;
   font-weight: 700;
-  background: linear-gradient(to right, #ffffff, #c084fc);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #ffffff;
   line-height: 1.2;
+}
+
+.brand-info h1 .primary-text {
+  color: var(--accent-violet);
 }
 
 .brand-info .version {

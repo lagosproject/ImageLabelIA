@@ -4,12 +4,14 @@ import {
   EventEmitter,
   Input,
   Output,
+  inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import type { ImageFileInfo } from '../../models';
 import { TaggerService } from '../../services/tagger.service';
 import { LazyThumbDirective } from './lazy-thumb.directive';
+import { I18nService } from '../../services/i18n.service';
 
 @Component({
   selector: 'app-image-gallery',
@@ -19,6 +21,7 @@ import { LazyThumbDirective } from './lazy-thumb.directive';
   templateUrl: './image-gallery.component.html',
 })
 export class ImageGalleryComponent {
+  readonly i18n = inject(I18nService);
   @Input() images: ImageFileInfo[] = [];
   @Input() selectedImage: ImageFileInfo | null = null;
   @Input() scanning = false;

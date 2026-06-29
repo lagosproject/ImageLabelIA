@@ -2,6 +2,7 @@ import { Component, OnInit, ViewEncapsulation, HostListener } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { TaggerService } from './services/tagger.service';
 import { BatchService } from './services/batch.service';
+import { I18nService } from './services/i18n.service';
 import type { BatchConfig } from './services/batch.service';
 import type { ImageFileInfo } from './models';
 import { FolderTreeComponent } from './components/folder-tree/folder-tree.component';
@@ -27,7 +28,11 @@ import { BatchReportModalComponent } from './components/batch-report-modal/batch
   styleUrl: './app.component.css',
 })
 export class AppComponent implements OnInit {
-  constructor(readonly tagger: TaggerService, readonly batch: BatchService) {}
+  constructor(
+    readonly tagger: TaggerService,
+    readonly batch: BatchService,
+    readonly i18n: I18nService
+  ) {}
 
   folderPath = '';
   subfolders: string[] = [];
