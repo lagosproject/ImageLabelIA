@@ -5,7 +5,9 @@ from transformers import AutoImageProcessor, AutoModelForImageClassification
 
 
 def export_convnext():
-    output_dir = os.path.join("src-tauri", "resources")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(script_dir)
+    output_dir = os.path.join(repo_root, "src-tauri", "resources")
     os.makedirs(output_dir, exist_ok=True)
 
     # We use Meta's ConvNeXt Base trained on ImageNet-22k (21,841 classes)

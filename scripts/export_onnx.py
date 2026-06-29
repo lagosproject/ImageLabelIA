@@ -56,7 +56,9 @@ def export_detr(output_dir):
 
 
 if __name__ == "__main__":
-    output_dir = os.path.join("src-tauri", "resources")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(script_dir)
+    output_dir = os.path.join(repo_root, "src-tauri", "resources")
     os.makedirs(output_dir, exist_ok=True)
 
     try:

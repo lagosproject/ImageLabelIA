@@ -30,7 +30,10 @@ def verify_sha256(file_path: str, expected: str) -> None:
 
 
 def download_model():
-    output_dir = os.path.join("src-tauri", "resources")
+    # Calculate output_dir relative to the repository root
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(script_dir)
+    output_dir = os.path.join(repo_root, "src-tauri", "resources")
     os.makedirs(output_dir, exist_ok=True)
 
     # 1. Download model.onnx (FP32 model from Xenova)
